@@ -6,9 +6,10 @@ import styles from './ChatbotWidget.module.css';
 
 export default function ChatbotWidget() {
   const [isOpen, setIsOpen] = useState(false);
+  const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  const { messages, input, handleInputChange, handleSubmit, isLoading, error } = useChat({
+  const { messages, isLoading, error, sendMessage } = useChat({
     api: '/api/chat',
     initialMessages: [
       {
@@ -18,6 +19,17 @@ export default function ChatbotWidget() {
       }
     ]
   });
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInput(e.target.value);
+  };
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+    sendMessage({ text: input });
+    setInput('');
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

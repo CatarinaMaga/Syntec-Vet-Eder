@@ -1,8 +1,11 @@
 "use client";
 
-import { useChat } from '@ai-sdk/react';
+import { UIMessage, useChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
 import { useState, useRef, useEffect } from 'react';
 import styles from './ChatbotWidget.module.css';
+
+const transport = new DefaultChatTransport({ api: '/api/chat' });
 
 export default function ChatbotWidget() {
   const [isOpen, setIsOpen] = useState(false);
@@ -10,13 +13,13 @@ export default function ChatbotWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const { messages, status, error, sendMessage } = useChat({
-    api: '/api/chat',
-    initialMessages: [
+    transport,
+    messages: [
       {
         id: 'welcome',
         role: 'assistant',
-        content: 'Olá! 👋 Sou o **Assistente Syntec Vet**. Posso ajudar com informações sobre nossos produtos veterinários, dosagens, indicações e muito mais. Como posso ajudar?'
-      }
+        parts: [{ type: 'text', text: 'Olá! 👋 Sou o **Assistente Syntec Vet**. Posso ajudar com informações sobre nossos produtos veterinários, dosagens, indicações e muito mais. Como posso ajudar?' }]
+      } as UIMessage
     ]
   });
 
@@ -74,10 +77,12 @@ export default function ChatbotWidget() {
         </div>
 
         <div className={styles.chatMessages}>
-          {messages.map((msg) => (
+          {messages.map((msg) => {
+            const textContent = msg.parts?.filter(p => p.type === 'text').map(p => (p as any).text).join('') || '';
+            return (
             <div key={msg.id} className={`${styles.message} ${msg.role === 'user' ? styles.userMsg : styles.botMsg}`}>
               <div className={styles.msgBubble}>
-                {msg.content.split('\n').map((line, i) => (
+                {textContent.split('\n').map((line, i) => (
                   <span key={i}>
                     {line.split(/(\*\*[^*]+\*\*)/).map((part, j) => {
                       if (part.startsWith('**') && part.endsWith('**')) {
@@ -85,12 +90,13 @@ export default function ChatbotWidget() {
                       }
                       return part;
                     })}
-                    {i < msg.content.split('\n').length - 1 && <br />}
+                    {i < textContent.split('\n').length - 1 && <br />}
                   </span>
                 ))}
               </div>
             </div>
-          ))}
+            );
+          })}
           
           {isLoading && (
             <div className={`${styles.message} ${styles.botMsg}`}>

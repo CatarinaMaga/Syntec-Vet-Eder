@@ -9,7 +9,7 @@ export default function ChatbotWidget() {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  const { messages, isLoading, error, sendMessage } = useChat({
+  const { messages, status, error, sendMessage } = useChat({
     api: '/api/chat',
     initialMessages: [
       {
@@ -19,6 +19,8 @@ export default function ChatbotWidget() {
       }
     ]
   });
+
+  const isLoading = status === 'submitted' || status === 'streaming';
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);

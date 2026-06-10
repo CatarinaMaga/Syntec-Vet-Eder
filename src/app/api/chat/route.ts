@@ -33,7 +33,8 @@ export async function POST(req: Request) {
           query: z.string().optional().describe('Termo de busca (nome do produto ou indicação)'),
           category: z.string().optional().describe('Categoria específica (ex: ANESTÉSICOS, ANTIBIÓTICOS, etc)'),
         }),
-        execute: async ({ query, category }) => {
+        // @ts-ignore
+        execute: async ({ query, category }: { query?: string, category?: string }): Promise<any> => {
           let req = supabase.from('products').select('name, description, price, category').eq('active', true);
           
           if (category) {

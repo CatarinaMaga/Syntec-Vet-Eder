@@ -3,6 +3,9 @@
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   
+  --primary: #00f0ff;
+  --primary-dark: #00a8b3;
+  
   --neon-cyan: #00f0ff;
   --neon-cyan-dim: rgba(0, 240, 255, 0.2);
   --neon-pink: #ff003c;

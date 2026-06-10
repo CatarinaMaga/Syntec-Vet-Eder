@@ -20,47 +20,56 @@ WhatsApp: +55 (71) 99921-6734
 `;
 
 export async function POST(req: Request) {
-  const { messages } = await req.json();
+  try {
+    const { messages } = await req.json();
 
-  const result = streamText({
-    model: google('gemini-2.0-flash'),
-    system: SYSTEM_PROMPT,
-    messages,
-    tools: {
-      search_products: tool({
-        description: 'Busca produtos no catálogo da Syntec por nome, termo na descrição ou categoria. Use esta ferramenta sempre que precisar de informações de catálogo.',
-        parameters: z.object({
-          query: z.string().optional().describe('Termo de busca (nome do produto ou indicação)'),
-          category: z.string().optional().describe('Categoria específica (ex: ANESTÉSICOS, ANTIBIÓTICOS, etc)'),
+    const result = streamText({
+      model: google('gemini-2.0-flash'),
+      system: SYSTEM_PROMPT,
+      messages,
+      tools: {
+        search_products: tool({
+          description: 'Busca produtos no catálogo da Syntec por nome, termo na descrição ou categoria. Use esta ferramenta sempre que precisar de informações de catálogo.',
+          parameters: z.object({
+            query: z.string().optional().describe('Termo de busca (nome do produto ou indicação)'),
+            category: z.string().optional().describe('Categoria específica (ex: ANESTÉSICOS, ANTIBIÓTICOS, etc)'),
+          }),
+          // @ts-ignore
+          execute: async ({ query, category }: { query?: string, category?: string }): Promise<any> => {
+            try {
+              let req = supabase.from('products').select('name, description, price, category').eq('active', true);
+              
+              if (category) {
+                req = req.ilike('category', `%${category}%`);
+              }
+              if (query) {
+                req = req.or(`name.ilike.%${query}%,description.ilike.%${query}%`);
+              }
+              
+              const { data, error } = await req.limit(10);
+              
+              if (error) {
+                console.error('Erro na busca de produtos (Tool):', error);
+                return { error: `Falha ao buscar produtos no banco de dados: ${error.message}` };
+              }
+              
+              if (!data || data.length === 0) {
+                return { message: 'Nenhum produto encontrado com esses critérios.' };
+              }
+              
+              return data;
+            } catch (err: any) {
+              console.error("Exceção na ferramenta search_products:", err);
+              return { error: 'Exceção interna na ferramenta.' };
+            }
+          },
         }),
-        // @ts-ignore
-        execute: async ({ query, category }: { query?: string, category?: string }): Promise<any> => {
-          let req = supabase.from('products').select('name, description, price, category').eq('active', true);
-          
-          if (category) {
-            req = req.ilike('category', `%${category}%`);
-          }
-          if (query) {
-            // Busca simples no nome ou descrição usando 'or' com 'ilike'
-            req = req.or(`name.ilike.%${query}%,description.ilike.%${query}%`);
-          }
-          
-          const { data, error } = await req.limit(10);
-          
-          if (error) {
-            console.error('Erro na busca de produtos (Tool):', error);
-            return { error: 'Falha ao buscar produtos no banco de dados.' };
-          }
-          
-          if (!data || data.length === 0) {
-            return { message: 'Nenhum produto encontrado com esses critérios.' };
-          }
-          
-          return data;
-        },
-      }),
-    },
-  });
+      },
+    });
 
-  return result.toTextStreamResponse();
+    return result.toTextStreamResponse();
+  } catch (error: any) {
+    console.error("Erro fatal no POST /api/chat:", error);
+    return new Response(JSON.stringify({ error: "Erro interno no servidor do Chatbot." }), { status: 500 });
+  }
 }

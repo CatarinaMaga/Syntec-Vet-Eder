@@ -69,8 +69,8 @@ export default function CartPage() {
       const encodedMessage = encodeURIComponent(message);
       
       clearCart();
-      window.open(`https://wa.me/${whatsappNumber}?text=${encodedMessage}`, '_blank');
-      router.push('/');
+      // Usar window.location.href evita bloqueadores de popup após requisições assíncronas
+      window.location.href = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
     } catch (error) {
       console.error("Erro ao fechar pedido:", error);
       alert("Houve um erro ao processar seu pedido. Tente novamente.");

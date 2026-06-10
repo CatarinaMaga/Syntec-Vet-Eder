@@ -1,12 +1,12 @@
+import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import Header from '@/components/Header';
-import AddToCartButton from './AddToCartButton';
-import { supabase } from '@/lib/supabase';
+import AddToCartAction from './AddToCartAction';
 import styles from './page.module.css';
+import { notFound } from 'next/navigation';
 
-export const revalidate = 60; // revalida a cada 60s
+export const revalidate = 60;
 
 export default async function ProductPage({ params }: { params: { id: string } }) {
   const { data: product, error } = await supabase
@@ -22,38 +22,36 @@ export default async function ProductPage({ params }: { params: { id: string } }
   return (
     <>
       <Header />
-      <main className={styles.main}>
+      <main className={styles.container}>
         <Link href="/" className={styles.backLink}>
           ← Voltar para o catálogo
         </Link>
         
-        <div className={styles.productContainer}>
-          <div className={styles.imageSection}>
-            <div className={styles.imageWrapper}>
-              <Image 
-                src={product.image_url || 'https://images.unsplash.com/photo-1584308666744-24d5e4a520d2?auto=format&fit=crop&q=80&w=400&h=300'} 
-                alt={product.name}
-                fill
-                className={styles.image}
-              />
-            </div>
+        <div className={styles.productWrapper}>
+          <div className={styles.imageBox}>
+            <Image 
+              src={product.image_url || '/placeholder.png'} 
+              alt={product.name} 
+              fill
+              className={styles.image}
+              sizes="(max-width: 768px) 100vw, 50vw"
+            />
           </div>
           
-          <div className={styles.infoSection}>
+          <div className={styles.info}>
             <span className={styles.category}>{product.category}</span>
             <h1 className={styles.title}>{product.name}</h1>
-            <p className={styles.price}>
-              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.price)}
-            </p>
             
-            <div className={styles.divider} />
+            <p className={styles.description}>{product.description}</p>
             
-            <div className={styles.descriptionBox}>
-              <h3>Bula / Indicação</h3>
-              <p>{product.description}</p>
+            <div className={styles.priceBox}>
+              <span className={styles.priceLabel}>Preço sugerido</span>
+              <div className={styles.price}>
+                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.price)}
+              </div>
             </div>
             
-            <AddToCartButton product={product} />
+            <AddToCartAction product={product} />
           </div>
         </div>
       </main>

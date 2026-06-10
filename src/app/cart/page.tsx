@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import Header from '@/components/Header';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
@@ -13,11 +14,16 @@ export default function CartPage() {
   const router = useRouter();
   const { items, removeFromCart, total, clearCart } = useCart();
   const { user } = useAuth();
+  const [shippingAddress, setShippingAddress] = useState('');
 
   const handleCheckout = async () => {
     if (items.length === 0) return;
     if (!user) {
       router.push('/login');
+      return;
+    }
+    if (!shippingAddress.trim()) {
+      alert("Por favor, preencha o endereço de entrega.");
       return;
     }
     
@@ -28,7 +34,8 @@ export default function CartPage() {
         .insert({
           user_id: user.id,
           total_amount: total,
-          status: 'pending'
+          status: 'pending',
+          shipping_address: shippingAddress.trim()
         })
         .select()
         .single();
@@ -54,6 +61,7 @@ export default function CartPage() {
       items.forEach(item => {
         message += `- ${item.quantity}x ${item.name} (${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.price)} cada)\n`;
       });
+      message += `\n*Endereço de Entrega:* ${shippingAddress.trim()}\n`;
       message += `\n*Total: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total)}*\n\n`;
       message += "Por favor, aguardo retorno para confirmar os detalhes da entrega e pagamento.";
 
@@ -111,6 +119,19 @@ export default function CartPage() {
             
             <div className={styles.summary}>
               <h2>Resumo do Pedido</h2>
+              
+              <div className={styles.addressGroup}>
+                <label htmlFor="address">Endereço de Entrega</label>
+                <textarea 
+                  id="address" 
+                  value={shippingAddress}
+                  onChange={(e) => setShippingAddress(e.target.value)}
+                  placeholder="Rua, Número, Bairro, Cidade, CEP..."
+                  rows={3}
+                  className={styles.addressInput}
+                />
+              </div>
+
               <div className={styles.summaryRow}>
                 <span>Subtotal</span>
                 <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total)}</span>

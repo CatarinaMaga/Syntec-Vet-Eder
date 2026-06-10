@@ -132,3 +132,26 @@
   filter: brightness(1.1);
   transform: translateY(-1px);
 }
+
+.accountBtn, .adminBtn {
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text);
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  transition: all 0.2s ease;
+}
+
+.accountBtn:hover, .adminBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.adminBtn {
+  border: 1px solid var(--primary);
+  color: var(--primary);
+}
+
+.adminBtn:hover {
+  background: rgba(0, 240, 255, 0.1);
+}

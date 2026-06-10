@@ -7,7 +7,7 @@ import styles from './Header.module.css';
 
 export default function Header() {
   const { items } = useCart();
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const cartCount = items.reduce((acc, item) => acc + item.quantity, 0);
 
   return (
@@ -19,7 +19,11 @@ export default function Header() {
         <nav className={styles.nav}>
           {user ? (
             <div className={styles.userMenu}>
-              <span className={styles.userEmail}>{user.email}</span>
+              <span className={styles.userEmail}>{profile?.full_name || user.email}</span>
+              <Link href="/profile" className={styles.accountBtn}>Minha Conta</Link>
+              {profile?.role === 'admin' && (
+                <Link href="/admin" className={styles.adminBtn}>Painel Admin</Link>
+              )}
               <button onClick={signOut} className={styles.logoutBtn}>Sair</button>
             </div>
           ) : (

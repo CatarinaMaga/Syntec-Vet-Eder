@@ -21,7 +21,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     return (
       <div style={{ padding: '50px', textAlign: 'center' }}>
         <h1>Erro ao carregar o produto</h1>
-        <p>ID Buscado: {params.id}</p>
+        <p>ID Buscado: {id}</p>
         <p>Erro do banco: {error?.message || 'Produto não encontrado'}</p>
         <Link href="/">Voltar para o catálogo</Link>
       </div>

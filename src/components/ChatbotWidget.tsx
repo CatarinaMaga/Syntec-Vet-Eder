@@ -18,8 +18,8 @@ export default function ChatbotWidget() {
       {
         id: 'welcome',
         role: 'assistant',
-        parts: [{ type: 'text', text: 'Olá! 👋 Sou o **Assistente Syntec Vet**. Posso ajudar com informações sobre nossos produtos veterinários, dosagens, indicações e muito mais. Como posso ajudar?' }]
-      } as UIMessage
+        content: 'Olá! 👋 Sou o **Assistente Syntec Vet**. Posso ajudar com informações sobre nossos produtos veterinários, dosagens, indicações e muito mais. Como posso ajudar?'
+      }
     ]
   });
 
@@ -78,7 +78,7 @@ export default function ChatbotWidget() {
 
         <div className={styles.chatMessages}>
           {messages.map((msg) => {
-            const textContent = msg.parts?.filter(p => p.type === 'text').map(p => (p as any).text).join('') || '';
+            const textContent = msg.content || '';
             return (
             <div key={msg.id} className={`${styles.message} ${msg.role === 'user' ? styles.userMsg : styles.botMsg}`}>
               <div className={styles.msgBubble}>

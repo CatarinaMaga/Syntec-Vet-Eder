@@ -8,15 +8,24 @@ import { notFound } from 'next/navigation';
 
 export const revalidate = 60;
 
-export default async function ProductPage({ params }: { params: { id: string } }) {
+export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  
   const { data: product, error } = await supabase
     .from('products')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', id)
     .single();
 
   if (error || !product) {
-    notFound();
+    return (
+      <div style={{ padding: '50px', textAlign: 'center' }}>
+        <h1>Erro ao carregar o produto</h1>
+        <p>ID Buscado: {params.id}</p>
+        <p>Erro do banco: {error?.message || 'Produto não encontrado'}</p>
+        <Link href="/">Voltar para o catálogo</Link>
+      </div>
+    );
   }
 
   return (

@@ -19,7 +19,7 @@ export default function ChatbotWidget() {
         id: 'welcome',
         role: 'assistant',
         content: 'Olá! 👋 Sou o **Assistente Syntec Vet**. Posso ajudar com informações sobre nossos produtos veterinários, dosagens, indicações e muito mais. Como posso ajudar?'
-      }
+      } as any
     ]
   });
 
@@ -78,7 +78,7 @@ export default function ChatbotWidget() {
 
         <div className={styles.chatMessages}>
           {messages.map((msg) => {
-            const textContent = msg.content || '';
+            const textContent = String((msg as any).content || msg.parts?.filter(p => p.type === 'text').map(p => (p as any).text).join('') || '');
             return (
             <div key={msg.id} className={`${styles.message} ${msg.role === 'user' ? styles.userMsg : styles.botMsg}`}>
               <div className={styles.msgBubble}>

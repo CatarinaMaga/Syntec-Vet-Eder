@@ -1,5 +1,5 @@
 import { groq } from '@ai-sdk/groq';
-import { streamText, tool } from 'ai';
+import { streamText, tool, convertToModelMessages } from 'ai';
 import { z } from 'zod';
 import { supabase } from '@/lib/supabase';
 
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     const result = streamText({
       model: groq('llama-3.3-70b-versatile'),
       system: SYSTEM_PROMPT,
-      messages,
+      messages: convertToModelMessages(messages),
       tools: {
         search_products: tool({
           description: 'Busca produtos no catálogo da Syntec por nome, termo na descrição ou categoria. Use esta ferramenta sempre que precisar de informações de catálogo.',

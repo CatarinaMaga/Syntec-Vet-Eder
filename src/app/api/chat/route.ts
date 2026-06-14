@@ -66,7 +66,7 @@ export async function POST(req: Request) {
         }),
       },
     });
-    return result.toTextStreamResponse();
+    return result.toUIMessageStreamResponse();
   } catch (error: any) {
     console.error("Erro fatal no POST /api/chat:", error);
     return new Response(JSON.stringify({ error: "Erro interno no servidor do Chatbot." }), { status: 500 });

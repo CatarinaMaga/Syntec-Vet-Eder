@@ -111,7 +111,7 @@ export default function ChatbotWidget() {
           {error && (
             <div className={`${styles.message} ${styles.botMsg}`}>
               <div className={`${styles.msgBubble} ${styles.errorBubble}`}>
-                ⚠️ Erro de conexão. Verifique se a chave de API do Gemini está configurada no arquivo .env.local (GOOGLE_GENERATIVE_AI_API_KEY).
+                ⚠️ Erro detectado: {error.message || 'Erro desconhecido ao processar a resposta.'}
               </div>
             </div>
           )}

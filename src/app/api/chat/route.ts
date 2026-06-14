@@ -26,12 +26,13 @@ export async function POST(req: Request) {
     const result = streamText({
       model: groq('llama-3.3-70b-versatile'),
       system: SYSTEM_PROMPT,
+      maxSteps: 5,
       messages: await convertToModelMessages(messages),
       tools: {
         search_products: tool({
           description: 'Busca produtos no catálogo da Syntec por nome, termo na descrição ou categoria. Use esta ferramenta sempre que precisar de informações de catálogo.',
           parameters: z.object({
-            query: z.string().optional().describe('Termo de busca (nome do produto ou indicação)'),
+            query: z.string().describe('Termo de busca (nome do produto, indicação ou categoria)'),
             category: z.string().optional().describe('Categoria específica (ex: ANESTÉSICOS, ANTIBIÓTICOS, etc)'),
           }),
           // @ts-ignore

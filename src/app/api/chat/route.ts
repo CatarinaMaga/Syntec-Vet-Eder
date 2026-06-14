@@ -1,4 +1,4 @@
-import { google } from '@ai-sdk/google';
+import { groq } from '@ai-sdk/groq';
 import { streamText, tool } from 'ai';
 import { z } from 'zod';
 import { supabase } from '@/lib/supabase';
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     const { messages } = await req.json();
 
     const result = streamText({
-      model: google('gemini-2.0-flash'),
+      model: groq('llama-3.3-70b-versatile'),
       system: SYSTEM_PROMPT,
       messages,
       tools: {
@@ -66,7 +66,6 @@ export async function POST(req: Request) {
         }),
       },
     });
-
     return result.toTextStreamResponse();
   } catch (error: any) {
     console.error("Erro fatal no POST /api/chat:", error);

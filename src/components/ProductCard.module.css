@@ -132,3 +132,28 @@
   transform: rotate(90deg);
   box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
 }
+
+.actionArea {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.quantityBadge {
+  background: var(--primary);
+  color: white;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popIn {
+  0% { transform: scale(0.5); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}

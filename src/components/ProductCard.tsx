@@ -19,8 +19,11 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
-  const { addToCart } = useCart();
+  const { items, addToCart } = useCart();
   const imageUrl = product.image_url;
+  
+  const cartItem = items.find(item => item.id === product.id);
+  const quantity = cartItem ? cartItem.quantity : 0;
 
   return (
     <Link href={`/product/${product.id}`} className={styles.cardLink}>
@@ -42,12 +45,15 @@ export default function ProductCard({ product }: ProductCardProps) {
             <span className={styles.price}>
               {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.price)}
             </span>
-            <button className={styles.addBtn} onClick={(e) => { 
-              e.preventDefault(); 
-              addToCart(product); 
-            }}>
-              +
-            </button>
+            <div className={styles.actionArea}>
+              {quantity > 0 && <span className={styles.quantityBadge}>{quantity}</span>}
+              <button className={styles.addBtn} onClick={(e) => { 
+                e.preventDefault(); 
+                addToCart(product); 
+              }}>
+                +
+              </button>
+            </div>
           </div>
         </div>
       </div>

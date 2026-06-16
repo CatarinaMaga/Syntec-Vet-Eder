@@ -32,7 +32,7 @@ export default function RootLayout({
         <AuthProvider>
           <CartProvider>
             {children}
-            <ChatbotWidget />
+            {/* <ChatbotWidget /> */}
           </CartProvider>
         </AuthProvider>
       </body>

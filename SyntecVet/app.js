@@ -331,8 +331,9 @@ function renderLogin() {
             <input id="fullName" name="fullName" type="text" autocomplete="name" />
           </div>
           <div id="phoneField" class="field" hidden>
-            <label for="phone">Telefone</label>
-            <input id="phone" name="phone" type="tel" autocomplete="tel" />
+            <label for="phone">WhatsApp</label>
+            <input id="phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="Ex: 71999998888" />
+            <small>Use somente numeros, com DDD. Ex: 71999998888 ou 5571999998888.</small>
           </div>
           <div class="field">
             <label for="email">E-mail</label>
@@ -368,7 +369,7 @@ function renderProfile() {
     <section class="split-layout">
       <form id="profileForm" class="panel form-grid">
         ${inputField("profileName", "Nome", user.fullName || "")}
-        ${inputField("profilePhone", "Telefone", user.phone || "", "tel")}
+        ${inputField("profilePhone", "WhatsApp", user.phone || "", "tel", "Ex: 71999998888", "Use somente numeros, com DDD. Ex: 71999998888 ou 5571999998888.")}
         ${inputField("profileZip", "CEP", user.zipCode || "", "text", "00000-000")}
         ${inputField("profileStreet", "Rua", user.street || "")}
         ${inputField("profileNumber", "Numero", user.addressNumber || "")}
@@ -393,11 +394,12 @@ function renderProfile() {
   `;
 }
 
-function inputField(id, label, value, type = "text", placeholder = "") {
+function inputField(id, label, value, type = "text", placeholder = "", help = "") {
   return `
     <label class="field" for="${id}">
       <span>${label}</span>
-      <input id="${id}" type="${type}" value="${escapeHtml(value)}" placeholder="${placeholder}" />
+      <input id="${id}" type="${type}" value="${escapeHtml(value)}" placeholder="${placeholder}" ${type === "tel" ? 'inputmode="numeric"' : ""} />
+      ${help ? `<small>${help}</small>` : ""}
     </label>
   `;
 }

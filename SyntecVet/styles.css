@@ -431,6 +431,13 @@ img {
   box-shadow: 0 0 0 3px rgba(0, 183, 173, 0.16);
 }
 
+.field small {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
 .full {
   grid-column: 1 / -1;
 }

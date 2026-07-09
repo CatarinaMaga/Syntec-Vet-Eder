@@ -1,4 +1,5 @@
 const CONFIG = window.SYNTECVET_CONFIG || {};
+let supabaseClient = null;
 
 const STORE = {
   products: "syntecvet.products",
@@ -761,7 +762,7 @@ function loginWithGoogle() {
     .then((client) =>
       client.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: window.location.origin + window.location.pathname },
+        options: { redirectTo: `${window.location.origin}/login` },
       }),
     )
     .catch(() => toast("Nao foi possivel iniciar login com Google."));
@@ -769,19 +770,92 @@ function loginWithGoogle() {
 
 function loadSupabase() {
   return new Promise((resolve, reject) => {
+    if (supabaseClient) {
+      resolve(supabaseClient);
+      return;
+    }
     if (window.supabase) {
-      resolve(window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey));
+      supabaseClient = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey);
+      resolve(supabaseClient);
       return;
     }
     const script = document.createElement("script");
     script.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
-    script.onload = () => resolve(window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey));
+    script.onload = () => {
+      supabaseClient = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey);
+      resolve(supabaseClient);
+    };
     script.onerror = reject;
     document.head.append(script);
   });
 }
 
-function logout() {
+async function syncSupabaseSession() {
+  if (!CONFIG.supabaseUrl || !CONFIG.supabaseAnonKey) return;
+
+  try {
+    const client = await loadSupabase();
+    const { data } = await client.auth.getSession();
+    const authUser = data.session?.user;
+    if (!authUser) return;
+
+    const profile = await fetchSupabaseProfile(client, authUser.id);
+    const localUser = upsertSupabaseUser(authUser, profile);
+    state.session = { userId: localUser.id };
+    save();
+
+    if (location.search.includes("code=")) {
+      history.replaceState({}, "", `${location.origin}${location.pathname}`);
+    }
+
+    if (state.route === "login") setRoute(localUser.role === "admin" ? "admin" : "perfil");
+    else render();
+  } catch {
+    toast("Nao foi possivel concluir o login com Google.");
+  }
+}
+
+async function fetchSupabaseProfile(client, userId) {
+  const { data } = await client
+    .from("profiles")
+    .select("full_name,email,phone,zip_code,street,neighborhood,city,state,address_number,address_complement,role,avatar_url")
+    .eq("id", userId)
+    .maybeSingle();
+  return data || {};
+}
+
+function upsertSupabaseUser(authUser, profile) {
+  const email = String(profile.email || authUser.email || "").toLowerCase();
+  let user = state.users.find((item) => item.id === authUser.id || item.email === email);
+  if (!user) {
+    user = { id: authUser.id, createdAt: new Date().toISOString() };
+    state.users.push(user);
+  }
+
+  Object.assign(user, {
+    id: authUser.id,
+    role: profile.role || user.role || "customer",
+    email,
+    fullName: profile.full_name || authUser.user_metadata?.full_name || authUser.user_metadata?.name || email,
+    phone: profile.phone || user.phone || "",
+    zipCode: profile.zip_code || user.zipCode || "",
+    street: profile.street || user.street || "",
+    neighborhood: profile.neighborhood || user.neighborhood || "",
+    city: profile.city || user.city || "",
+    state: profile.state || user.state || "",
+    addressNumber: profile.address_number || user.addressNumber || "",
+    addressComplement: profile.address_complement || user.addressComplement || "",
+    avatarUrl: profile.avatar_url || authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || "",
+    provider: "google",
+  });
+
+  return user;
+}
+
+async function logout() {
+  if (CONFIG.supabaseUrl && CONFIG.supabaseAnonKey) {
+    loadSupabase().then((client) => client.auth.signOut()).catch(() => {});
+  }
   state.session = null;
   save();
   setRoute("catalogo");
@@ -1037,6 +1111,7 @@ function boot() {
   if ("serviceWorker" in navigator && location.protocol !== "file:") {
     navigator.serviceWorker.register("sw.js").catch(() => {});
   }
+  syncSupabaseSession();
 }
 
 boot();

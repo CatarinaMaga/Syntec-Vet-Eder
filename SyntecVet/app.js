@@ -231,8 +231,6 @@ function renderCatalog() {
       <img src="/assets/catalog/page-01.png" alt="" />
       <div class="hero-copy">
         <span>Catalogo digital</span>
-        <h1>Produtos Syntec para grandes animais</h1>
-        <p>Vitrine de pedidos com catalogo, quantidades, CEP automatico, WhatsApp e atendimento virtual.</p>
       </div>
     </section>
 

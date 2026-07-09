@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0057a8" />
+    <title>SyntecVet | Catalogo de Produtos</title>
+    <meta
+      name="description"
+      content="Vitrine digital SyntecVet para pedidos, atendimento e painel do representante."
+    />
+    <link rel="manifest" href="manifest.webmanifest?v=3" />
+    <link rel="stylesheet" href="styles.css?v=3" />
+    <script src="config.js?v=3"></script>
+    <script defer src="app.js?v=3"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#catalogo" aria-label="SyntecVet">
+        <span class="brand-mark">S</span>
+        <span>Syntec<span>Vet</span></span>
+      </a>
+      <nav class="nav-actions" aria-label="Navegacao principal">
+        <button class="icon-button" id="navCatalog" type="button" title="Catalogo" aria-label="Catalogo">
+          <span data-icon="grid"></span>
+        </button>
+        <button class="icon-button" id="navCart" type="button" title="Carrinho" aria-label="Carrinho">
+          <span data-icon="cart"></span>
+          <strong id="cartBadge" class="badge" hidden>0</strong>
+        </button>
+        <button class="pill-button" id="navProfile" type="button">Entrar</button>
+      </nav>
+    </header>
+
+    <main id="app" class="app-shell" tabindex="-1"></main>
+
+    <section class="chat-shell" id="chatShell" aria-label="Assistente virtual">
+      <button class="chat-fab" id="chatToggle" type="button" aria-label="Abrir assistente">
+        <span data-icon="message"></span>
+      </button>
+      <div class="chat-panel" id="chatPanel" hidden>
+        <div class="chat-head">
+          <div>
+            <strong>Assistente SyntecVet</strong>
+            <span>Online</span>
+          </div>
+          <button class="icon-button ghost" id="chatClose" type="button" aria-label="Fechar chat">
+            <span data-icon="close"></span>
+          </button>
+        </div>
+        <div class="chat-messages" id="chatMessages"></div>
+        <form class="chat-form" id="chatForm">
+          <input id="chatInput" type="text" autocomplete="off" placeholder="Pergunte sobre um produto" />
+          <button class="icon-button accent" type="submit" aria-label="Enviar">
+            <span data-icon="send"></span>
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <template id="iconTemplate">
+      <svg viewBox="0 0 24 24" aria-hidden="true"></svg>
+    </template>
+  </body>
+</html>

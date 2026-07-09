@@ -1,0 +1,5 @@
+preview-*.png
+server.*.log
+server.mjs
+supabase/
+README.md

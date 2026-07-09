@@ -230,7 +230,7 @@ function renderCatalog() {
     <section class="hero">
       <img src="/assets/catalog/page-01.png" alt="" />
       <div class="hero-copy">
-        <span>Catalogo digital</span>
+        <h1>Catalogo digital</h1>
       </div>
     </section>
 

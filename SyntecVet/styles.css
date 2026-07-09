@@ -605,6 +605,22 @@ img {
   color: var(--muted);
 }
 
+.alert-item small {
+  color: var(--muted);
+}
+
+.alert-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.alert-actions button {
+  min-height: 40px;
+  padding-inline: 14px;
+}
+
 .admin-product {
   display: grid;
   grid-template-columns: 82px 1fr 110px 96px minmax(180px, 1fr) 86px 90px;

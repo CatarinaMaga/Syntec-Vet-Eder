@@ -460,6 +460,7 @@ function renderCartItem(item) {
 function renderAdmin() {
   const sold = productStats();
   const customers = customerStats();
+  const alerts = humanAlerts();
   return `
     <section class="page-band">
       <div>
@@ -504,12 +505,7 @@ function renderAdmin() {
       <div class="panel">
         <h2>Mensagens para atendimento</h2>
         <div class="table-list">
-          ${state.chat
-            .filter((item) => item.needsHuman)
-            .slice(-8)
-            .reverse()
-            .map((item) => `<div><strong>${item.customer || "Cliente"}</strong><span>${escapeHtml(item.message)}</span></div>`)
-            .join("") || `<p class="muted">Nenhum alerta humano.</p>`}
+          ${alerts.slice(-8).reverse().map(renderHumanAlert).join("") || `<p class="muted">Nenhum alerta humano.</p>`}
         </div>
       </div>
     </section>
@@ -540,6 +536,50 @@ function renderAdminProduct(item) {
       <button class="secondary-button" type="button" data-save-product="${item.id}">Salvar</button>
     </article>
   `;
+}
+
+function humanAlerts() {
+  return state.chat
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => item.needsHuman && !item.handled);
+}
+
+function renderHumanAlert({ item, index }) {
+  const customer = alertCustomer(item);
+  const phone = customer?.phone || item.customerPhone || "";
+  const phoneLabel = phone ? formatPhone(phone) : "Telefone nao cadastrado";
+  return `
+    <div class="alert-item">
+      <strong>${escapeHtml(item.customer || customer?.fullName || "Cliente")}</strong>
+      <span>${escapeHtml(item.message)}</span>
+      <small>${phoneLabel}</small>
+      <div class="alert-actions">
+        <button class="secondary-button" type="button" data-alert-whatsapp="${index}" ${phone ? "" : "disabled"}>Responder no WhatsApp</button>
+        <button class="primary-button" type="button" data-resolve-alert="${index}">Marcar como resolvido</button>
+      </div>
+    </div>
+  `;
+}
+
+function alertCustomer(item) {
+  const customerId = item.customerId || "";
+  const customerEmail = String(item.customerEmail || item.customer || "").toLowerCase();
+  const customerName = String(item.customer || "").toLowerCase();
+  return state.users.find((user) => {
+    return (
+      user.id === customerId ||
+      String(user.email || "").toLowerCase() === customerEmail ||
+      String(user.fullName || "").toLowerCase() === customerName
+    );
+  });
+}
+
+function formatPhone(phone) {
+  const clean = String(phone || "").replace(/\D/g, "");
+  if (!clean) return "";
+  if (clean.length === 13) return `+${clean.slice(0, 2)} (${clean.slice(2, 4)}) ${clean.slice(4, 9)}-${clean.slice(9)}`;
+  if (clean.length === 11) return `(${clean.slice(0, 2)}) ${clean.slice(2, 7)}-${clean.slice(7)}`;
+  return clean;
 }
 
 function renderOrderMini(order) {
@@ -667,6 +707,8 @@ function bindEvents() {
     if (target.id === "googleLogin") loginWithGoogle();
     if (target.id === "logoutButton") logout();
     if (target.dataset.saveProduct) saveProduct(target.dataset.saveProduct);
+    if (target.dataset.alertWhatsapp) replyHumanAlert(Number(target.dataset.alertWhatsapp));
+    if (target.dataset.resolveAlert) resolveHumanAlert(Number(target.dataset.resolveAlert));
   });
 
   document.addEventListener("input", (event) => {
@@ -975,6 +1017,43 @@ function whatsappUrl(order) {
   return `https://wa.me/${phone}?text=${encodeURIComponent(lines.join("\n"))}`;
 }
 
+function replyHumanAlert(index) {
+  const item = state.chat[index];
+  if (!item) return;
+  const customer = alertCustomer(item);
+  const phone = normalizeCustomerPhone(customer?.phone || item.customerPhone || "");
+  if (!phone) {
+    toast("Cliente sem telefone cadastrado.");
+    return;
+  }
+
+  const message = [
+    `Olá, ${item.customer || customer?.fullName || "tudo bem"}!`,
+    `Sou ${state.settings.representativeName || "o representante SyntecVet"}.`,
+    "Vi sua solicitação de atendimento no catálogo digital e estou entrando em contato para ajudar.",
+  ].join("\n");
+
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+}
+
+function resolveHumanAlert(index) {
+  const item = state.chat[index];
+  if (!item) return;
+  item.handled = true;
+  item.handledAt = new Date().toISOString();
+  save();
+  toast("Alerta marcado como resolvido.");
+  render();
+}
+
+function normalizeCustomerPhone(phone) {
+  const clean = String(phone || "").replace(/\D/g, "");
+  if (!clean) return "";
+  if (clean.startsWith("55")) return clean;
+  if (clean.length === 10 || clean.length === 11) return `55${clean}`;
+  return clean;
+}
+
 function saveProduct(id) {
   const item = state.products.find((productItem) => productItem.id === id);
   if (!item) return;
@@ -1029,13 +1108,20 @@ function handleChat(event) {
   if (!message) return;
   input.value = "";
   const user = currentUser();
-  state.chat.push({ from: "user", message, customer: user?.fullName || user?.email || "Visitante", createdAt: new Date().toISOString() });
+  const customerInfo = {
+    customerId: user?.id || "",
+    customer: user?.fullName || user?.email || "Visitante",
+    customerEmail: user?.email || "",
+    customerPhone: user?.phone || "",
+  };
+  state.chat.push({ id: slugId(), from: "user", message, ...customerInfo, createdAt: new Date().toISOString() });
   const answer = chatAnswer(message);
   state.chat.push({
+    id: slugId(),
     from: "bot",
     message: answer.message,
     needsHuman: answer.needsHuman,
-    customer: user?.fullName || user?.email || "Visitante",
+    ...customerInfo,
     createdAt: new Date().toISOString(),
   });
   save();

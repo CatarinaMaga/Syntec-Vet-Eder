@@ -80,8 +80,8 @@ function product(id, name, category, indication, dose, presentation, page) {
     price: null,
     stock: 0,
     active: true,
-    image: `assets/products/${id}.jpg`,
-    pageImage: `assets/catalog/page-${String(page).padStart(2, "0")}.png`,
+    image: `/assets/products/${id}.jpg`,
+    pageImage: `/assets/catalog/page-${String(page).padStart(2, "0")}.png`,
     description: `${name} integra a linha ${category.toLowerCase()} Syntec para grandes animais. Consulte sempre a bula e a orientacao do medico-veterinario.`,
     faq: [
       ["Para quais animais e indicado?", indication],
@@ -228,7 +228,7 @@ function renderCatalog() {
 
   return `
     <section class="hero">
-      <img src="assets/catalog/page-01.png" alt="" />
+      <img src="/assets/catalog/page-01.png" alt="" />
       <div class="hero-copy">
         <span>Catalogo digital</span>
         <h1>Produtos Syntec para grandes animais</h1>
@@ -1109,7 +1109,7 @@ function boot() {
   render();
   renderChat();
   if ("serviceWorker" in navigator && location.protocol !== "file:") {
-    navigator.serviceWorker.register("sw.js").catch(() => {});
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
   }
   syncSupabaseSession();
 }

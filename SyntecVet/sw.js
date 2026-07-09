@@ -1,13 +1,13 @@
-const CACHE_NAME = "syntecvet-v4";
+const CACHE_NAME = "syntecvet-v5";
 const APP_SHELL = [
-  "./",
-  "./index.html",
-  "./styles.css",
-  "./app.js",
-  "./config.js",
-  "./manifest.webmanifest",
-  "./assets/products/anestt.jpg",
-  "./assets/products/get-vacina-syntec.jpg",
+  "/",
+  "/index.html",
+  "/styles.css",
+  "/app.js",
+  "/config.js",
+  "/manifest.webmanifest",
+  "/assets/products/anestt.jpg",
+  "/assets/products/get-vacina-syntec.jpg",
 ];
 
 self.addEventListener("install", (event) => {
@@ -36,7 +36,7 @@ self.addEventListener("fetch", (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           return response;
         })
-        .catch(() => caches.match("./index.html"));
+        .catch(() => caches.match("/index.html"));
     }),
   );
 });

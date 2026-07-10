@@ -211,7 +211,10 @@ function initialRoute() {
 function render() {
   document.querySelector("#cartBadge").hidden = cartCount() === 0;
   document.querySelector("#cartBadge").textContent = String(cartCount());
-  document.querySelector("#navProfile").textContent = currentUser()?.role === "admin" ? "Admin" : "Representante";
+  const adminNav = document.querySelector("#navProfile");
+  const user = currentUser();
+  adminNav.hidden = user?.role !== "admin";
+  adminNav.textContent = "Admin";
 
   const app = document.querySelector("#app");
   if (state.route === "login") app.innerHTML = renderLogin();

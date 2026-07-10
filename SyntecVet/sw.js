@@ -1,4 +1,4 @@
-const CACHE_NAME = "syntecvet-v10";
+const CACHE_NAME = "syntecvet-v11";
 const APP_SHELL = [
   "/",
   "/index.html",

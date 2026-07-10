@@ -13,6 +13,7 @@ const STORE = {
 
 const PRIVACY_VERSION = "2026-07-09";
 const PUBLIC_APP_URL = "https://syntec-vet-eder-x47q.vercel.app";
+const PHASE_ONE_MODE = true;
 const ROUTES = ["login", "catalogo", "carrinho", "perfil", "admin", "privacidade"];
 
 const seedProducts = [
@@ -210,13 +211,13 @@ function initialRoute() {
 function render() {
   document.querySelector("#cartBadge").hidden = cartCount() === 0;
   document.querySelector("#cartBadge").textContent = String(cartCount());
-  document.querySelector("#navProfile").textContent = currentUser() ? "Perfil" : "Entrar";
+  document.querySelector("#navProfile").textContent = currentUser()?.role === "admin" ? "Admin" : "Representante";
 
   const app = document.querySelector("#app");
   if (state.route === "login") app.innerHTML = renderLogin();
   if (state.route === "catalogo") app.innerHTML = renderCatalog();
   if (state.route === "carrinho") app.innerHTML = renderCart();
-  if (state.route === "perfil") app.innerHTML = currentUser() ? renderProfile() : renderLogin();
+  if (state.route === "perfil") app.innerHTML = currentUser()?.role === "admin" ? renderAdmin() : renderCatalog();
   if (state.route === "admin") app.innerHTML = currentUser()?.role === "admin" ? renderAdmin() : renderLogin();
   if (state.route === "privacidade") app.innerHTML = renderPrivacy();
   mountIcons();
@@ -321,23 +322,14 @@ function renderLogin() {
   return `
     <section class="auth-layout">
       <div class="auth-card">
-        <h1 id="authTitle">Entrar</h1>
-        <p>Acesse sua conta para fechar pedidos e salvar dados de entrega.</p>
+        <h1 id="authTitle">Acesso do representante</h1>
+        <p>Entre para atualizar produtos, precos, imagens e WhatsApp comercial.</p>
         <button class="google-button" type="button" id="googleLogin">
           <span class="google-mark">G</span>
           Entrar com Google
         </button>
         <div class="divider"><span>ou</span></div>
         <form id="authForm" class="form-stack">
-          <div id="nameField" class="field" hidden>
-            <label for="fullName">Nome completo</label>
-            <input id="fullName" name="fullName" type="text" autocomplete="name" />
-          </div>
-          <div id="phoneField" class="field" hidden>
-            <label for="phone">WhatsApp</label>
-            <input id="phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="Ex: 71999998888" />
-            <small>Use somente numeros, com DDD. Ex: 71999998888 ou 5571999998888.</small>
-          </div>
           <div class="field">
             <label for="email">E-mail</label>
             <input id="email" name="email" type="email" autocomplete="email" required />
@@ -351,12 +343,8 @@ function renderLogin() {
               </button>
             </div>
           </div>
-          <label id="privacyConsentField" class="checkbox-field" hidden>
-            <input id="privacyConsent" name="privacyConsent" type="checkbox" />
-            <span>Li e concordo com a Politica de Privacidade e autorizo o tratamento dos meus dados para cadastro, pedidos, entrega e atendimento pelo WhatsApp.</span>
-          </label>
           <button class="primary-button" id="authSubmit" type="submit">Entrar</button>
-          <button class="link-button" type="button" id="toggleAuth">Criar conta de cliente</button>
+          <button class="link-button" type="button" data-route="catalogo">Voltar ao catalogo</button>
           <button class="link-button" type="button" data-route="privacidade">Privacidade e LGPD</button>
         </form>
       </div>
@@ -377,36 +365,36 @@ function renderPrivacy() {
       <article class="panel">
         <h2>Dados usados</h2>
         <ul class="privacy-list">
-          <li>Nome, e-mail e WhatsApp para identificar o cliente e permitir contato comercial.</li>
-          <li>CEP e endereco de entrega para preparar o pedido e enviar ao representante.</li>
-          <li>Itens do carrinho, pedidos e mensagens do assistente para atendimento e historico comercial.</li>
+          <li>Nome, WhatsApp, CEP/endereco e produtos escolhidos no carrinho.</li>
+          <li>Esses dados sao informados somente no fechamento do pedido.</li>
+          <li>O cliente nao precisa criar conta para comprar nesta fase inicial.</li>
         </ul>
       </article>
       <article class="panel">
         <h2>Finalidade</h2>
         <ul class="privacy-list">
-          <li>Cadastro e autenticacao do cliente.</li>
-          <li>Envio dos pedidos ao WhatsApp do representante de vendas.</li>
-          <li>Atendimento sobre produtos, duvidas e solicitacoes humanas.</li>
-          <li>Analise administrativa de produtos mais vendidos e frequencia de compra.</li>
+          <li>Montar a mensagem do pedido.</li>
+          <li>Enviar os dados ao WhatsApp comercial do representante.</li>
+          <li>Permitir contato para confirmacao, entrega e atendimento.</li>
+          <li>Responder duvidas sobre produtos pelo assistente virtual.</li>
         </ul>
       </article>
       <article class="panel">
         <h2>Protecao</h2>
         <ul class="privacy-list">
-          <li>Autenticacao por Supabase quando configurado, incluindo Google e e-mail/senha.</li>
-          <li>Separacao de perfis de cliente e administrador por regras de acesso no banco.</li>
-          <li>Uso de HTTPS, politicas de seguranca no deploy e coleta limitada ao pedido.</li>
-          <li>Senha nao deve ser compartilhada e nao aparece para o representante.</li>
+          <li>Coleta limitada aos dados essenciais do pedido.</li>
+          <li>Pedidos nao ficam salvos como historico de cliente no sistema nesta fase.</li>
+          <li>O acesso administrativo e restrito ao representante.</li>
+          <li>O site usa HTTPS e politicas de seguranca no deploy.</li>
         </ul>
       </article>
       <article class="panel">
         <h2>Direitos do cliente</h2>
         <ul class="privacy-list">
-          <li>Acessar, corrigir e atualizar os dados pelo perfil.</li>
-          <li>Exportar uma copia dos dados locais da conta.</li>
-          <li>Solicitar exclusao, revogacao de consentimento ou atendimento humano pelo WhatsApp.</li>
-          <li>Solicitar informacoes sobre o uso e compartilhamento dos dados.</li>
+          <li>Conferir e corrigir os dados antes de enviar o pedido.</li>
+          <li>Solicitar atendimento humano pelo WhatsApp.</li>
+          <li>Pedir ao representante correcao ou exclusao de dados que tenham ficado na conversa comercial.</li>
+          <li>Solicitar informacoes sobre o uso dos dados do pedido.</li>
         </ul>
       </article>
     </section>
@@ -476,7 +464,6 @@ function inputField(id, label, value, type = "text", placeholder = "", help = ""
 
 function renderCart() {
   const items = cartItems();
-  const user = currentUser();
   return `
     <section class="page-band">
       <div>
@@ -490,20 +477,23 @@ function renderCart() {
         ${items.map(renderCartItem).join("") || `<p class="muted">Escolha produtos no catalogo para montar o pedido.</p>`}
       </div>
       <aside class="panel checkout-panel">
-        <h2>Entrega</h2>
-        ${
-          user
-            ? `<p class="muted">${user.fullName} - ${user.phone || "sem telefone"}</p>`
-            : `<p class="muted">Entre ou crie conta para finalizar.</p>`
-        }
+        <h2>Dados para envio</h2>
+        <p class="muted">Preencha apenas os dados necessarios para o representante receber o pedido no WhatsApp.</p>
         <form id="checkoutForm" class="form-stack">
-          ${inputField("checkoutZip", "CEP", user?.zipCode || "", "text", "00000-000")}
-          ${inputField("checkoutStreet", "Rua", user?.street || "")}
-          ${inputField("checkoutNumber", "Numero", user?.addressNumber || "")}
-          ${inputField("checkoutComplement", "Complemento", user?.addressComplement || "")}
-          ${inputField("checkoutNeighborhood", "Bairro", user?.neighborhood || "")}
-          ${inputField("checkoutCity", "Cidade", user?.city || "")}
-          ${inputField("checkoutState", "UF", user?.state || "")}
+          ${inputField("checkoutName", "Nome completo", "", "text", "Nome do cliente")}
+          ${inputField("checkoutPhone", "WhatsApp", "", "tel", "Ex: 71999998888", "Use somente numeros, com DDD. Ex: 71999998888 ou 5571999998888.")}
+          ${inputField("checkoutZip", "CEP", "", "text", "00000-000")}
+          ${inputField("checkoutStreet", "Rua", "")}
+          ${inputField("checkoutNumber", "Numero", "")}
+          ${inputField("checkoutComplement", "Complemento", "")}
+          ${inputField("checkoutNeighborhood", "Bairro", "")}
+          ${inputField("checkoutCity", "Cidade", "")}
+          ${inputField("checkoutState", "UF", "")}
+          <label class="checkbox-field">
+            <input id="checkoutPrivacy" type="checkbox" required />
+            <span>Estou ciente de que meus dados serao usados somente para montar este pedido e enviar ao WhatsApp do representante.</span>
+          </label>
+          <button class="link-button compact-link" type="button" data-route="privacidade">Ver aviso de privacidade</button>
           <div class="summary-row"><span>Total</span><strong>${money(cartTotal())}</strong></div>
           <button class="primary-button" type="submit" ${items.length ? "" : "disabled"}>Enviar pedido no WhatsApp</button>
         </form>
@@ -530,10 +520,7 @@ function renderCartItem(item) {
 }
 
 function renderAdmin() {
-  const sold = productStats();
-  const customers = customerStats();
   const alerts = humanAlerts();
-  const lgpdRequests = privacyRequests();
   return `
     <section class="page-band">
       <div>
@@ -543,23 +530,21 @@ function renderAdmin() {
       <button class="secondary-button" type="button" id="logoutButton">Sair</button>
     </section>
     <section class="admin-grid">
-      ${metric("Pedidos", state.orders.length)}
-      ${metric("Clientes", state.users.filter((user) => user.role === "customer").length)}
       ${metric("Produtos ativos", state.products.filter((item) => item.active).length)}
+      ${metric("Categorias", categories().length - 1)}
       ${metric("Alertas humanos", state.chat.filter((item) => item.needsHuman && !item.handled).length)}
-      ${metric("Solicitacoes LGPD", lgpdRequests.length)}
+      ${metric("Modo", "Fase 1")}
     </section>
     <section class="admin-layout">
       <div class="panel">
-        <h2>Produtos mais vendidos</h2>
-        <div class="bar-list">
-          ${sold.slice(0, 8).map((item) => renderBar(item.name, item.quantity, sold[0]?.quantity || 1)).join("") || `<p class="muted">Sem vendas ainda.</p>`}
-        </div>
+        <h2>Fluxo atual</h2>
+        <p class="muted">Clientes nao precisam criar conta. Eles escolhem os produtos, preenchem nome, WhatsApp e endereco no carrinho, e o pedido e enviado direto para o WhatsApp do representante.</p>
+        <p class="muted">Nesta fase, o sistema nao salva historico de clientes nem pedidos no banco.</p>
       </div>
       <form id="settingsForm" class="panel form-stack">
         <h2>Representante</h2>
         ${inputField("settingsName", "Nome", state.settings.representativeName || "")}
-        ${inputField("settingsWhatsapp", "WhatsApp", state.settings.whatsapp || "", "tel")}
+        ${inputField("settingsWhatsapp", "WhatsApp", state.settings.whatsapp || "", "tel", "5571999216734", "Use codigo do pais + DDD + numero. Ex: 5571999216734.")}
         <button class="primary-button" type="submit">Salvar WhatsApp</button>
       </form>
     </section>
@@ -571,21 +556,9 @@ function renderAdmin() {
     </section>
     <section class="admin-layout">
       <div class="panel">
-        <h2>Clientes</h2>
-        <div class="table-list">
-          ${customers.map((item) => `<div><strong>${item.name}</strong><span>${item.orders} pedido(s) - ${item.quantity} itens</span></div>`).join("")}
-        </div>
-      </div>
-      <div class="panel">
         <h2>Mensagens para atendimento</h2>
         <div class="table-list">
           ${alerts.slice(-8).reverse().map(renderHumanAlert).join("") || `<p class="muted">Nenhum alerta humano.</p>`}
-        </div>
-      </div>
-      <div class="panel">
-        <h2>Solicitacoes LGPD</h2>
-        <div class="table-list">
-          ${lgpdRequests.map(renderPrivacyRequest).join("") || `<p class="muted">Nenhuma solicitacao LGPD pendente.</p>`}
         </div>
       </div>
     </section>
@@ -784,7 +757,7 @@ function bindEvents() {
 
     if (target.id === "navCatalog") setRoute("catalogo");
     if (target.id === "navCart") setRoute("carrinho");
-    if (target.id === "navProfile") setRoute(currentUser() ? "perfil" : "login");
+    if (target.id === "navProfile") setRoute(currentUser()?.role === "admin" ? "admin" : "login");
     if (target.dataset.route) setRoute(target.dataset.route);
     if (target.dataset.category) {
       state.category = target.dataset.category;
@@ -848,16 +821,7 @@ function bindEvents() {
 }
 
 function toggleAuthMode() {
-  const isRegister = document.querySelector("#authSubmit").dataset.mode === "register";
-  document.querySelector("#authSubmit").dataset.mode = isRegister ? "login" : "register";
-  document.querySelector("#authSubmit").textContent = isRegister ? "Entrar" : "Cadastrar";
-  document.querySelector("#authTitle").textContent = isRegister ? "Entrar" : "Criar conta";
-  document.querySelector("#toggleAuth").textContent = isRegister ? "Criar conta de cliente" : "Ja tenho conta";
-  document.querySelector("#nameField").hidden = isRegister;
-  document.querySelector("#phoneField").hidden = isRegister;
-  document.querySelector("#privacyConsentField").hidden = isRegister;
-  document.querySelector("#privacyConsent").required = !isRegister;
-  document.querySelector("#password").autocomplete = isRegister ? "current-password" : "new-password";
+  toast("Nesta fase, clientes enviam pedidos sem criar conta.");
 }
 
 function togglePassword() {
@@ -872,97 +836,41 @@ function togglePassword() {
 async function handleAuth(event) {
   event.preventDefault();
   const form = new FormData(event.target);
-  const mode = document.querySelector("#authSubmit").dataset.mode || "login";
   const email = String(form.get("email") || "").trim().toLowerCase();
   const password = String(form.get("password") || "");
 
   if (CONFIG.supabaseUrl && CONFIG.supabaseAnonKey) {
-    await handleSupabaseEmailAuth(form, mode, email, password);
+    await handleSupabaseEmailAuth(email, password);
     return;
   }
 
-  if (mode === "register") {
-    if (state.users.some((user) => user.email === email)) return toast("E-mail ja cadastrado.");
-    if (!document.querySelector("#privacyConsent")?.checked) {
-      return toast("Aceite a Politica de Privacidade para criar a conta.");
-    }
-    const user = {
-      id: slugId(),
-      role: "customer",
-      email,
-      password,
-      fullName: String(form.get("fullName") || "").trim(),
-      phone: String(form.get("phone") || "").replace(/\D/g, ""),
-      privacyConsentAt: new Date().toISOString(),
-      privacyVersion: PRIVACY_VERSION,
-      createdAt: new Date().toISOString(),
-    };
-    state.users.push(user);
-    state.session = { userId: user.id };
-    save();
-    setRoute("perfil");
-    return;
-  }
   const user = state.users.find((item) => item.email === email && item.password === password);
   if (!user) return toast("E-mail ou senha invalidos.");
+  if (user.role !== "admin") return toast("Acesso restrito ao representante.");
   state.session = { userId: user.id };
   save();
-  setRoute(user.role === "admin" ? "admin" : "catalogo");
+  setRoute("admin");
 }
 
-async function handleSupabaseEmailAuth(form, mode, email, password) {
+async function handleSupabaseEmailAuth(email, password) {
   try {
     const client = await loadSupabase();
-    if (mode === "register") {
-      if (!document.querySelector("#privacyConsent")?.checked) {
-        toast("Aceite a Politica de Privacidade para criar a conta.");
-        return;
-      }
-      const consentAt = new Date().toISOString();
-      const fullName = String(form.get("fullName") || "").trim();
-      const phone = String(form.get("phone") || "").replace(/\D/g, "");
-      const { data, error } = await client.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/login`,
-          data: {
-            full_name: fullName,
-            phone,
-            privacy_consent_at: consentAt,
-            privacy_version: PRIVACY_VERSION,
-          },
-        },
-      });
-      if (error) throw error;
-
-      const authUser = data.user;
-      if (authUser) {
-        const localUser = upsertSupabaseUser(authUser, {
-          email,
-          full_name: fullName,
-          phone,
-          role: "customer",
-          privacy_consent_at: consentAt,
-          privacy_version: PRIVACY_VERSION,
-        });
-        state.session = { userId: localUser.id };
-        await syncSupabaseProfile(localUser);
-      }
-      save();
-      setRoute("perfil");
-      toast("Conta criada com consentimento registrado.");
-      return;
-    }
-
     const { data, error } = await client.auth.signInWithPassword({ email, password });
     if (error) throw error;
     const authUser = data.user;
     const profile = await fetchSupabaseProfile(client, authUser.id);
     const localUser = upsertSupabaseUser(authUser, profile);
+    if (localUser.role !== "admin") {
+      await client.auth.signOut();
+      state.session = null;
+      save();
+      setRoute("catalogo");
+      toast("Acesso restrito ao representante.");
+      return;
+    }
     state.session = { userId: localUser.id };
     save();
-    setRoute(localUser.role === "admin" ? "admin" : "catalogo");
+    setRoute("admin");
   } catch (error) {
     toast(error.message || "Nao foi possivel autenticar.");
   }
@@ -1016,6 +924,17 @@ async function syncSupabaseSession() {
 
     const profile = await fetchSupabaseProfile(client, authUser.id);
     const localUser = upsertSupabaseUser(authUser, profile);
+    if (localUser.role !== "admin") {
+      await client.auth.signOut();
+      state.session = null;
+      save();
+      if (location.search.includes("code=")) {
+        history.replaceState({}, "", `${location.origin}${location.pathname}`);
+      }
+      setRoute("catalogo");
+      toast("Acesso restrito ao representante.");
+      return;
+    }
     state.session = { userId: localUser.id };
     save();
 
@@ -1023,7 +942,7 @@ async function syncSupabaseSession() {
       history.replaceState({}, "", `${location.origin}${location.pathname}`);
     }
 
-    if (state.route === "login") setRoute(localUser.role === "admin" ? "admin" : "perfil");
+    if (state.route === "login") setRoute("admin");
     else render();
   } catch {
     toast("Nao foi possivel concluir o login com Google.");
@@ -1147,15 +1066,11 @@ function value(id) {
 
 async function handleCheckout(event) {
   event.preventDefault();
-  const user = currentUser();
-  if (!user) {
-    setRoute("login");
-    toast("Entre para finalizar o pedido.");
-    return;
-  }
   const items = cartItems();
   if (!items.length) return;
 
+  const customerName = value("checkoutName");
+  const customerPhone = value("checkoutPhone").replace(/\D/g, "");
   const address = {
     zipCode: value("checkoutZip").replace(/\D/g, ""),
     street: value("checkoutStreet"),
@@ -1165,21 +1080,14 @@ async function handleCheckout(event) {
     city: value("checkoutCity"),
     state: value("checkoutState"),
   };
-  if (!address.zipCode || !address.street || !address.number) {
-    toast("Preencha CEP, rua e numero.");
+  if (!customerName || !customerPhone || !address.zipCode || !address.street || !address.number) {
+    toast("Preencha nome, WhatsApp, CEP, rua e numero.");
     return;
   }
-
-  Object.assign(user, {
-    zipCode: address.zipCode,
-    street: address.street,
-    addressNumber: address.number,
-    addressComplement: address.complement,
-    neighborhood: address.neighborhood,
-    city: address.city,
-    state: address.state,
-  });
-  await syncSupabaseProfile(user);
+  if (!document.querySelector("#checkoutPrivacy")?.checked) {
+    toast("Confirme o aviso de privacidade para enviar o pedido.");
+    return;
+  }
 
   const shippingAddress = [
     address.street,
@@ -1194,21 +1102,20 @@ async function handleCheckout(event) {
 
   const order = {
     id: slugId(),
-    userId: user.id,
-    customerName: user.fullName || user.email,
-    customerPhone: user.phone || "",
+    userId: "",
+    customerName,
+    customerPhone,
     shippingAddress,
     total: cartTotal(),
     items: items.map((item) => ({ id: item.id, name: item.name, quantity: item.quantity, price: item.price })),
     status: "pending",
     createdAt: new Date().toISOString(),
   };
-  state.orders.push(order);
   state.cart = {};
   save();
   window.open(whatsappUrl(order), "_blank", "noopener,noreferrer");
-  setRoute("perfil");
-  toast("Pedido registrado e enviado ao WhatsApp.");
+  setRoute("catalogo");
+  toast("Pedido enviado ao WhatsApp. Nenhum cadastro de cliente foi criado.");
 }
 
 function whatsappUrl(order) {

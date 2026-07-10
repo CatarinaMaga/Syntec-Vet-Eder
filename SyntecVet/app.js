@@ -208,6 +208,25 @@ function initialRoute() {
   return "catalogo";
 }
 
+function hasAuthCallback() {
+  return (
+    location.search.includes("code=") ||
+    location.search.includes("error=") ||
+    location.hash.includes("access_token=") ||
+    location.hash.includes("error=")
+  );
+}
+
+function cleanAuthCallbackUrl() {
+  if (hasAuthCallback()) {
+    history.replaceState({}, "", `${location.origin}${location.pathname}`);
+  }
+}
+
+function shouldSyncSupabaseSession() {
+  return state.route === "login" || state.route === "admin" || hasAuthCallback();
+}
+
 function render() {
   document.querySelector("#cartBadge").hidden = cartCount() === 0;
   document.querySelector("#cartBadge").textContent = String(cartCount());
@@ -918,12 +937,16 @@ function loadSupabase() {
 
 async function syncSupabaseSession() {
   if (!CONFIG.supabaseUrl || !CONFIG.supabaseAnonKey) return;
+  const shouldShowLoginError = state.route === "login" || state.route === "admin" || hasAuthCallback();
 
   try {
     const client = await loadSupabase();
     const { data } = await client.auth.getSession();
     const authUser = data.session?.user;
-    if (!authUser) return;
+    if (!authUser) {
+      cleanAuthCallbackUrl();
+      return;
+    }
 
     const profile = await fetchSupabaseProfile(client, authUser.id);
     const localUser = upsertSupabaseUser(authUser, profile);
@@ -931,24 +954,21 @@ async function syncSupabaseSession() {
       await client.auth.signOut();
       state.session = null;
       save();
-      if (location.search.includes("code=")) {
-        history.replaceState({}, "", `${location.origin}${location.pathname}`);
-      }
+      cleanAuthCallbackUrl();
       setRoute("catalogo");
-      toast("Acesso restrito ao representante.");
+      if (shouldShowLoginError) toast("Acesso restrito ao representante.");
       return;
     }
     state.session = { userId: localUser.id };
     save();
 
-    if (location.search.includes("code=")) {
-      history.replaceState({}, "", `${location.origin}${location.pathname}`);
-    }
+    cleanAuthCallbackUrl();
 
     if (state.route === "login") setRoute("admin");
     else render();
   } catch {
-    toast("Nao foi possivel concluir o login com Google.");
+    cleanAuthCallbackUrl();
+    if (shouldShowLoginError) toast("Nao foi possivel concluir o login com Google.");
   }
 }
 
@@ -1403,7 +1423,7 @@ function boot() {
   if ("serviceWorker" in navigator && location.protocol !== "file:") {
     navigator.serviceWorker.register("/sw.js").catch(() => {});
   }
-  syncSupabaseSession();
+  if (shouldSyncSupabaseSession()) syncSupabaseSession();
 }
 
 boot();

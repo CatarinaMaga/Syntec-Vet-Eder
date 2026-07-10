@@ -14,9 +14,19 @@ create table if not exists public.profiles (
   address_complement text,
   role text not null default 'customer' check (role in ('customer', 'admin')),
   avatar_url text,
+  privacy_consent_at timestamptz,
+  privacy_version text,
+  data_deletion_requested_at timestamptz,
+  data_deletion_handled_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table if exists public.profiles
+  add column if not exists privacy_consent_at timestamptz,
+  add column if not exists privacy_version text,
+  add column if not exists data_deletion_requested_at timestamptz,
+  add column if not exists data_deletion_handled_at timestamptz;
 
 create table if not exists public.products (
   id text primary key,
@@ -106,13 +116,16 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, full_name, email, avatar_url, role)
+  insert into public.profiles (id, full_name, email, phone, avatar_url, role, privacy_consent_at, privacy_version)
   values (
     new.id,
     coalesce(new.raw_user_meta_data ->> 'full_name', new.raw_user_meta_data ->> 'name', new.email, ''),
     new.email,
+    coalesce(new.raw_user_meta_data ->> 'phone', ''),
     coalesce(new.raw_user_meta_data ->> 'avatar_url', new.raw_user_meta_data ->> 'picture', ''),
-    'customer'
+    'customer',
+    nullif(new.raw_user_meta_data ->> 'privacy_consent_at', '')::timestamptz,
+    coalesce(new.raw_user_meta_data ->> 'privacy_version', '')
   )
   on conflict (id) do nothing;
 

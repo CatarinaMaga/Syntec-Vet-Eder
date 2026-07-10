@@ -11,7 +11,9 @@ const STORE = {
   chat: "syntecvet.chat",
 };
 
-const ROUTES = ["login", "catalogo", "carrinho", "perfil", "admin"];
+const PRIVACY_VERSION = "2026-07-09";
+const PUBLIC_APP_URL = "https://syntec-vet-eder-x47q.vercel.app";
+const ROUTES = ["login", "catalogo", "carrinho", "perfil", "admin", "privacidade"];
 
 const seedProducts = [
   product("anestt", "Anestt", "Anestesicos", "Bovinos, equinos, suinos, ovinos, caes e gatos", "SC: grandes animais 5 a 10 mL. Pequenos animais 1 a 3 mL por sitio de aplicacao.", "Frasco-ampola de 50 mL.", 4),
@@ -216,6 +218,7 @@ function render() {
   if (state.route === "carrinho") app.innerHTML = renderCart();
   if (state.route === "perfil") app.innerHTML = currentUser() ? renderProfile() : renderLogin();
   if (state.route === "admin") app.innerHTML = currentUser()?.role === "admin" ? renderAdmin() : renderLogin();
+  if (state.route === "privacidade") app.innerHTML = renderPrivacy();
   mountIcons();
 }
 
@@ -348,10 +351,64 @@ function renderLogin() {
               </button>
             </div>
           </div>
+          <label id="privacyConsentField" class="checkbox-field" hidden>
+            <input id="privacyConsent" name="privacyConsent" type="checkbox" />
+            <span>Li e concordo com a Politica de Privacidade e autorizo o tratamento dos meus dados para cadastro, pedidos, entrega e atendimento pelo WhatsApp.</span>
+          </label>
           <button class="primary-button" id="authSubmit" type="submit">Entrar</button>
           <button class="link-button" type="button" id="toggleAuth">Criar conta de cliente</button>
+          <button class="link-button" type="button" data-route="privacidade">Privacidade e LGPD</button>
         </form>
       </div>
+    </section>
+  `;
+}
+
+function renderPrivacy() {
+  return `
+    <section class="page-band">
+      <div>
+        <span>Privacidade e LGPD</span>
+        <h1>Tratamento de dados</h1>
+      </div>
+      <button class="secondary-button" type="button" data-route="${currentUser() ? "perfil" : "login"}">Voltar</button>
+    </section>
+    <section class="privacy-grid">
+      <article class="panel">
+        <h2>Dados usados</h2>
+        <ul class="privacy-list">
+          <li>Nome, e-mail e WhatsApp para identificar o cliente e permitir contato comercial.</li>
+          <li>CEP e endereco de entrega para preparar o pedido e enviar ao representante.</li>
+          <li>Itens do carrinho, pedidos e mensagens do assistente para atendimento e historico comercial.</li>
+        </ul>
+      </article>
+      <article class="panel">
+        <h2>Finalidade</h2>
+        <ul class="privacy-list">
+          <li>Cadastro e autenticacao do cliente.</li>
+          <li>Envio dos pedidos ao WhatsApp do representante de vendas.</li>
+          <li>Atendimento sobre produtos, duvidas e solicitacoes humanas.</li>
+          <li>Analise administrativa de produtos mais vendidos e frequencia de compra.</li>
+        </ul>
+      </article>
+      <article class="panel">
+        <h2>Protecao</h2>
+        <ul class="privacy-list">
+          <li>Autenticacao por Supabase quando configurado, incluindo Google e e-mail/senha.</li>
+          <li>Separacao de perfis de cliente e administrador por regras de acesso no banco.</li>
+          <li>Uso de HTTPS, politicas de seguranca no deploy e coleta limitada ao pedido.</li>
+          <li>Senha nao deve ser compartilhada e nao aparece para o representante.</li>
+        </ul>
+      </article>
+      <article class="panel">
+        <h2>Direitos do cliente</h2>
+        <ul class="privacy-list">
+          <li>Acessar, corrigir e atualizar os dados pelo perfil.</li>
+          <li>Exportar uma copia dos dados locais da conta.</li>
+          <li>Solicitar exclusao, revogacao de consentimento ou atendimento humano pelo WhatsApp.</li>
+          <li>Solicitar informacoes sobre o uso e compartilhamento dos dados.</li>
+        </ul>
+      </article>
     </section>
   `;
 }
@@ -389,6 +446,19 @@ function renderProfile() {
             .map(renderOrderMini)
             .join("") || `<p class="muted">Nenhum pedido registrado.</p>`}
         </div>
+      </div>
+    </section>
+    <section class="panel privacy-panel">
+      <div>
+        <span class="eyebrow">LGPD</span>
+        <h2>Privacidade e dados pessoais</h2>
+        <p class="muted">Consentimento: ${user.privacyConsentAt ? new Date(user.privacyConsentAt).toLocaleString("pt-BR") : "nao registrado"}.</p>
+      </div>
+      <div class="data-actions">
+        <button class="secondary-button" type="button" data-route="privacidade">Ver politica</button>
+        <button class="secondary-button" type="button" id="exportDataButton">Exportar meus dados</button>
+        <button class="danger-button" type="button" id="requestDeletionButton">Solicitar exclusao</button>
+        <button class="link-button" type="button" id="clearLocalDataButton">Limpar este dispositivo</button>
       </div>
     </section>
   `;
@@ -463,6 +533,7 @@ function renderAdmin() {
   const sold = productStats();
   const customers = customerStats();
   const alerts = humanAlerts();
+  const lgpdRequests = privacyRequests();
   return `
     <section class="page-band">
       <div>
@@ -476,6 +547,7 @@ function renderAdmin() {
       ${metric("Clientes", state.users.filter((user) => user.role === "customer").length)}
       ${metric("Produtos ativos", state.products.filter((item) => item.active).length)}
       ${metric("Alertas humanos", state.chat.filter((item) => item.needsHuman && !item.handled).length)}
+      ${metric("Solicitacoes LGPD", lgpdRequests.length)}
     </section>
     <section class="admin-layout">
       <div class="panel">
@@ -508,6 +580,12 @@ function renderAdmin() {
         <h2>Mensagens para atendimento</h2>
         <div class="table-list">
           ${alerts.slice(-8).reverse().map(renderHumanAlert).join("") || `<p class="muted">Nenhum alerta humano.</p>`}
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Solicitacoes LGPD</h2>
+        <div class="table-list">
+          ${lgpdRequests.map(renderPrivacyRequest).join("") || `<p class="muted">Nenhuma solicitacao LGPD pendente.</p>`}
         </div>
       </div>
     </section>
@@ -544,6 +622,25 @@ function humanAlerts() {
   return state.chat
     .map((item, index) => ({ item, index }))
     .filter(({ item }) => item.needsHuman && !item.handled);
+}
+
+function privacyRequests() {
+  return state.users.filter((user) => user.dataDeletionRequestedAt && !user.dataDeletionHandledAt);
+}
+
+function renderPrivacyRequest(user) {
+  const phoneLabel = user.phone ? formatPhone(user.phone) : "Telefone nao cadastrado";
+  return `
+    <div class="alert-item">
+      <strong>${escapeHtml(user.fullName || user.email || "Cliente")}</strong>
+      <span>Solicitou exclusao/revogacao de consentimento em ${new Date(user.dataDeletionRequestedAt).toLocaleString("pt-BR")}.</span>
+      <small>${escapeHtml(user.email || "")} ${phoneLabel ? `- ${phoneLabel}` : ""}</small>
+      <div class="alert-actions">
+        <button class="secondary-button" type="button" data-lgpd-whatsapp="${user.id}" ${user.phone ? "" : "disabled"}>Responder no WhatsApp</button>
+        <button class="primary-button" type="button" data-resolve-lgpd="${user.id}">Marcar como tratado</button>
+      </div>
+    </div>
+  `;
 }
 
 function renderHumanAlert({ item, index }) {
@@ -708,9 +805,14 @@ function bindEvents() {
     if (target.id === "togglePassword") togglePassword();
     if (target.id === "googleLogin") loginWithGoogle();
     if (target.id === "logoutButton") logout();
+    if (target.id === "exportDataButton") exportMyData();
+    if (target.id === "requestDeletionButton") requestDataDeletion();
+    if (target.id === "clearLocalDataButton") clearLocalData();
     if (target.dataset.saveProduct) saveProduct(target.dataset.saveProduct);
     if (target.dataset.alertWhatsapp) replyHumanAlert(Number(target.dataset.alertWhatsapp));
     if (target.dataset.resolveAlert) resolveHumanAlert(Number(target.dataset.resolveAlert));
+    if (target.dataset.lgpdWhatsapp) replyPrivacyRequest(target.dataset.lgpdWhatsapp);
+    if (target.dataset.resolveLgpd) resolvePrivacyRequest(target.dataset.resolveLgpd);
   });
 
   document.addEventListener("input", (event) => {
@@ -753,6 +855,8 @@ function toggleAuthMode() {
   document.querySelector("#toggleAuth").textContent = isRegister ? "Criar conta de cliente" : "Ja tenho conta";
   document.querySelector("#nameField").hidden = isRegister;
   document.querySelector("#phoneField").hidden = isRegister;
+  document.querySelector("#privacyConsentField").hidden = isRegister;
+  document.querySelector("#privacyConsent").required = !isRegister;
   document.querySelector("#password").autocomplete = isRegister ? "current-password" : "new-password";
 }
 
@@ -765,21 +869,32 @@ function togglePassword() {
   button.innerHTML = input.type === "password" ? iconMarkup("eye") : iconMarkup("eye-off");
 }
 
-function handleAuth(event) {
+async function handleAuth(event) {
   event.preventDefault();
   const form = new FormData(event.target);
   const mode = document.querySelector("#authSubmit").dataset.mode || "login";
   const email = String(form.get("email") || "").trim().toLowerCase();
   const password = String(form.get("password") || "");
+
+  if (CONFIG.supabaseUrl && CONFIG.supabaseAnonKey) {
+    await handleSupabaseEmailAuth(form, mode, email, password);
+    return;
+  }
+
   if (mode === "register") {
     if (state.users.some((user) => user.email === email)) return toast("E-mail ja cadastrado.");
+    if (!document.querySelector("#privacyConsent")?.checked) {
+      return toast("Aceite a Politica de Privacidade para criar a conta.");
+    }
     const user = {
       id: slugId(),
       role: "customer",
       email,
       password,
       fullName: String(form.get("fullName") || "").trim(),
-      phone: String(form.get("phone") || "").trim(),
+      phone: String(form.get("phone") || "").replace(/\D/g, ""),
+      privacyConsentAt: new Date().toISOString(),
+      privacyVersion: PRIVACY_VERSION,
       createdAt: new Date().toISOString(),
     };
     state.users.push(user);
@@ -793,6 +908,64 @@ function handleAuth(event) {
   state.session = { userId: user.id };
   save();
   setRoute(user.role === "admin" ? "admin" : "catalogo");
+}
+
+async function handleSupabaseEmailAuth(form, mode, email, password) {
+  try {
+    const client = await loadSupabase();
+    if (mode === "register") {
+      if (!document.querySelector("#privacyConsent")?.checked) {
+        toast("Aceite a Politica de Privacidade para criar a conta.");
+        return;
+      }
+      const consentAt = new Date().toISOString();
+      const fullName = String(form.get("fullName") || "").trim();
+      const phone = String(form.get("phone") || "").replace(/\D/g, "");
+      const { data, error } = await client.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/login`,
+          data: {
+            full_name: fullName,
+            phone,
+            privacy_consent_at: consentAt,
+            privacy_version: PRIVACY_VERSION,
+          },
+        },
+      });
+      if (error) throw error;
+
+      const authUser = data.user;
+      if (authUser) {
+        const localUser = upsertSupabaseUser(authUser, {
+          email,
+          full_name: fullName,
+          phone,
+          role: "customer",
+          privacy_consent_at: consentAt,
+          privacy_version: PRIVACY_VERSION,
+        });
+        state.session = { userId: localUser.id };
+        await syncSupabaseProfile(localUser);
+      }
+      save();
+      setRoute("perfil");
+      toast("Conta criada com consentimento registrado.");
+      return;
+    }
+
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    const authUser = data.user;
+    const profile = await fetchSupabaseProfile(client, authUser.id);
+    const localUser = upsertSupabaseUser(authUser, profile);
+    state.session = { userId: localUser.id };
+    save();
+    setRoute(localUser.role === "admin" ? "admin" : "catalogo");
+  } catch (error) {
+    toast(error.message || "Nao foi possivel autenticar.");
+  }
 }
 
 function loginWithGoogle() {
@@ -860,7 +1033,7 @@ async function syncSupabaseSession() {
 async function fetchSupabaseProfile(client, userId) {
   const { data } = await client
     .from("profiles")
-    .select("full_name,email,phone,zip_code,street,neighborhood,city,state,address_number,address_complement,role,avatar_url")
+    .select("full_name,email,phone,zip_code,street,neighborhood,city,state,address_number,address_complement,role,avatar_url,privacy_consent_at,privacy_version,data_deletion_requested_at,data_deletion_handled_at")
     .eq("id", userId)
     .maybeSingle();
   return data || {};
@@ -888,10 +1061,43 @@ function upsertSupabaseUser(authUser, profile) {
     addressNumber: profile.address_number || user.addressNumber || "",
     addressComplement: profile.address_complement || user.addressComplement || "",
     avatarUrl: profile.avatar_url || authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || "",
+    privacyConsentAt: profile.privacy_consent_at || authUser.user_metadata?.privacy_consent_at || user.privacyConsentAt || "",
+    privacyVersion: profile.privacy_version || authUser.user_metadata?.privacy_version || user.privacyVersion || "",
+    dataDeletionRequestedAt: profile.data_deletion_requested_at || user.dataDeletionRequestedAt || "",
+    dataDeletionHandledAt: profile.data_deletion_handled_at || user.dataDeletionHandledAt || "",
     provider: "google",
   });
 
   return user;
+}
+
+async function syncSupabaseProfile(user, extra = {}) {
+  if (!CONFIG.supabaseUrl || !CONFIG.supabaseAnonKey || !user?.id || user.id === "admin" || user.id === "cliente-demo") return;
+  try {
+    const client = await loadSupabase();
+    await client
+      .from("profiles")
+      .update({
+        full_name: user.fullName || "",
+        email: user.email || "",
+        phone: String(user.phone || "").replace(/\D/g, ""),
+        zip_code: user.zipCode || "",
+        street: user.street || "",
+        neighborhood: user.neighborhood || "",
+        city: user.city || "",
+        state: user.state || "",
+        address_number: user.addressNumber || "",
+        address_complement: user.addressComplement || "",
+        privacy_consent_at: user.privacyConsentAt || null,
+        privacy_version: user.privacyVersion || PRIVACY_VERSION,
+        data_deletion_requested_at: user.dataDeletionRequestedAt || null,
+        data_deletion_handled_at: user.dataDeletionHandledAt || null,
+        ...extra,
+      })
+      .eq("id", user.id);
+  } catch {
+    // O perfil local continua disponivel mesmo se a sincronizacao remota falhar.
+  }
 }
 
 async function logout() {
@@ -914,13 +1120,13 @@ async function autoCep(value, prefix) {
   }
 }
 
-function handleProfile(event) {
+async function handleProfile(event) {
   event.preventDefault();
   const user = currentUser();
   if (!user) return;
   Object.assign(user, {
     fullName: value("profileName"),
-    phone: value("profilePhone"),
+    phone: value("profilePhone").replace(/\D/g, ""),
     zipCode: value("profileZip").replace(/\D/g, ""),
     street: value("profileStreet"),
     addressNumber: value("profileNumber"),
@@ -929,6 +1135,7 @@ function handleProfile(event) {
     city: value("profileCity"),
     state: value("profileState"),
   });
+  await syncSupabaseProfile(user);
   save();
   toast("Perfil atualizado.");
   render();
@@ -938,7 +1145,7 @@ function value(id) {
   return document.querySelector(`#${id}`)?.value.trim() || "";
 }
 
-function handleCheckout(event) {
+async function handleCheckout(event) {
   event.preventDefault();
   const user = currentUser();
   if (!user) {
@@ -972,6 +1179,7 @@ function handleCheckout(event) {
     city: address.city,
     state: address.state,
   });
+  await syncSupabaseProfile(user);
 
   const shippingAddress = [
     address.street,
@@ -1075,6 +1283,94 @@ function handleSettings(event) {
   state.settings.whatsapp = value("settingsWhatsapp").replace(/\D/g, "");
   save();
   toast("Configuracao salva.");
+  render();
+}
+
+function exportMyData() {
+  const user = currentUser();
+  if (!user) return;
+  const { password, ...profile } = user;
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    app: PUBLIC_APP_URL,
+    privacyVersion: PRIVACY_VERSION,
+    profile,
+    orders: state.orders.filter((order) => order.userId === user.id),
+    chat: state.chat.filter((item) => item.customerId === user.id || item.customerEmail === user.email),
+    cart: state.cart,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `syntecvet-dados-${Date.now()}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+  toast("Arquivo de dados gerado.");
+}
+
+async function requestDataDeletion() {
+  const user = currentUser();
+  if (!user) return;
+  user.dataDeletionRequestedAt = new Date().toISOString();
+  user.dataDeletionHandledAt = "";
+  await syncSupabaseProfile(user);
+  save();
+
+  const message = [
+    "SOLICITACAO LGPD - EXCLUSAO/REVOGACAO",
+    `Cliente: ${user.fullName || user.email}`,
+    `E-mail: ${user.email || "nao informado"}`,
+    `WhatsApp: ${user.phone || "nao informado"}`,
+    "Solicito a verificacao, exclusao ou revogacao do consentimento dos meus dados pessoais no sistema SyntecVet.",
+  ].join("\n");
+  window.open(representativeWhatsappUrl(message), "_blank", "noopener,noreferrer");
+  toast("Solicitacao LGPD enviada ao representante.");
+  render();
+}
+
+function clearLocalData() {
+  const user = currentUser();
+  if (!user) return;
+  const confirmed = confirm("Limpar os dados deste dispositivo remove sessao, carrinho, historico local e cadastro local. Dados ja enviados ao banco/WhatsApp precisam ser tratados pelo representante.");
+  if (!confirmed) return;
+  state.orders = state.orders.filter((order) => order.userId !== user.id);
+  state.chat = state.chat.filter((item) => item.customerId !== user.id && item.customerEmail !== user.email);
+  state.users = state.users.filter((item) => item.id !== user.id);
+  state.cart = {};
+  state.session = null;
+  save();
+  setRoute("catalogo");
+  toast("Dados locais removidos deste dispositivo.");
+}
+
+function representativeWhatsappUrl(message) {
+  const phone = String(state.settings.whatsapp || CONFIG.salesRepWhatsapp || "").replace(/\D/g, "");
+  return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+}
+
+function replyPrivacyRequest(userId) {
+  const user = state.users.find((item) => item.id === userId);
+  const phone = normalizeCustomerPhone(user?.phone || "");
+  if (!phone) {
+    toast("Cliente sem telefone cadastrado.");
+    return;
+  }
+  const message = [
+    `Ola, ${user.fullName || "tudo bem"}!`,
+    `Sou ${state.settings.representativeName || "o representante SyntecVet"}.`,
+    "Recebi sua solicitacao LGPD e vou tratar seu pedido de privacidade.",
+  ].join("\n");
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+}
+
+async function resolvePrivacyRequest(userId) {
+  const user = state.users.find((item) => item.id === userId);
+  if (!user) return;
+  user.dataDeletionHandledAt = new Date().toISOString();
+  await syncSupabaseProfile(user);
+  save();
+  toast("Solicitacao LGPD marcada como tratada.");
   render();
 }
 

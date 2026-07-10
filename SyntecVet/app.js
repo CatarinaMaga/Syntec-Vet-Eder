@@ -887,15 +887,37 @@ async function handleSupabaseEmailAuth(email, password) {
       state.session = null;
       save();
       setRoute("catalogo");
-      toast("Acesso restrito ao representante.");
+      toast("Usuario autenticado, mas ainda nao esta marcado como admin.");
       return;
     }
     state.session = { userId: localUser.id };
     save();
     setRoute("admin");
   } catch (error) {
-    toast(error.message || "Nao foi possivel autenticar.");
+    toast(authErrorMessage(error));
   }
+}
+
+function authErrorMessage(error) {
+  const message = String(error?.message || "").toLowerCase();
+
+  if (message.includes("invalid login credentials")) {
+    return "E-mail ou senha invalidos no Supabase.";
+  }
+
+  if (message.includes("email not confirmed")) {
+    return "Este e-mail ainda nao foi confirmado no Supabase.";
+  }
+
+  if (message.includes("user not found")) {
+    return "Usuario nao encontrado no Supabase.";
+  }
+
+  if (message.includes("too many") || message.includes("rate limit")) {
+    return "Muitas tentativas. Aguarde alguns minutos e tente novamente.";
+  }
+
+  return error?.message || "Nao foi possivel autenticar.";
 }
 
 function loginWithGoogle() {

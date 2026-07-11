@@ -1,5 +1,6 @@
 const CONFIG = window.SYNTECVET_CONFIG || {};
 let supabaseClient = null;
+let supabaseLoadPromise = null;
 
 const STORE = {
   products: "syntecvet.products",
@@ -936,25 +937,48 @@ function loginWithGoogle() {
 }
 
 function loadSupabase() {
-  return new Promise((resolve, reject) => {
-    if (supabaseClient) {
-      resolve(supabaseClient);
-      return;
-    }
-    if (window.supabase) {
-      supabaseClient = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey);
-      resolve(supabaseClient);
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
-    script.onload = () => {
+  if (supabaseClient) return Promise.resolve(supabaseClient);
+  if (supabaseLoadPromise) return supabaseLoadPromise;
+
+  supabaseLoadPromise = new Promise((resolve, reject) => {
+    const connect = () => {
+      if (!window.supabase?.createClient) {
+        reject(new Error("A biblioteca de autenticacao do Supabase nao foi carregada."));
+        return;
+      }
       supabaseClient = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey);
       resolve(supabaseClient);
     };
-    script.onerror = reject;
+
+    if (window.supabase?.createClient) {
+      connect();
+      return;
+    }
+
+    const existingScript = document.querySelector("script[data-supabase-client]");
+    if (existingScript) {
+      existingScript.addEventListener("load", connect, { once: true });
+      existingScript.addEventListener(
+        "error",
+        () => reject(new Error("Nao foi possivel carregar a autenticacao do Supabase. Verifique sua conexao.")),
+        { once: true },
+      );
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.dataset.supabaseClient = "true";
+    script.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.2/dist/umd/supabase.min.js";
+    script.onload = connect;
+    script.onerror = () =>
+      reject(new Error("Nao foi possivel carregar a autenticacao do Supabase. Verifique sua conexao."));
     document.head.append(script);
+  }).catch((error) => {
+    supabaseLoadPromise = null;
+    throw error;
   });
+
+  return supabaseLoadPromise;
 }
 
 async function syncSupabaseSession() {
@@ -995,11 +1019,12 @@ async function syncSupabaseSession() {
 }
 
 async function fetchSupabaseProfile(client, userId) {
-  const { data } = await client
+  const { data, error } = await client
     .from("profiles")
     .select("full_name,email,phone,zip_code,street,neighborhood,city,state,address_number,address_complement,role,avatar_url,privacy_consent_at,privacy_version,data_deletion_requested_at,data_deletion_handled_at")
     .eq("id", userId)
     .maybeSingle();
+  if (error) throw new Error(`Falha ao consultar o perfil do administrador: ${error.message}`);
   return data || {};
 }
 
@@ -1013,7 +1038,7 @@ function upsertSupabaseUser(authUser, profile) {
 
   Object.assign(user, {
     id: authUser.id,
-    role: profile.role || user.role || "customer",
+    role: profile.role || "customer",
     email,
     fullName: profile.full_name || authUser.user_metadata?.full_name || authUser.user_metadata?.name || email,
     phone: profile.phone || user.phone || "",

@@ -30,6 +30,8 @@ html {
 body {
   min-height: 100%;
   margin: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 button,
@@ -97,7 +99,31 @@ img {
 }
 
 .app-shell {
+  flex: 1;
   padding: 28px 5vw 96px;
+}
+
+.site-footer {
+  padding: 20px 5vw;
+  color: #526273;
+  background: #ffffff;
+  border-top: 1px solid var(--line);
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.site-footer p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.site-footer strong:first-child {
+  color: var(--blue-2);
+}
+
+.site-footer span {
+  margin: 0 8px;
+  color: var(--teal);
 }
 
 .hero {

@@ -806,7 +806,7 @@ function bindEvents() {
     if (target.id === "exportDataButton") exportMyData();
     if (target.id === "requestDeletionButton") requestDataDeletion();
     if (target.id === "clearLocalDataButton") clearLocalData();
-    if (target.dataset.saveProduct) saveProduct(target.dataset.saveProduct);
+    if (target.dataset.saveProduct) await saveProduct(target.dataset.saveProduct);
     if (target.dataset.alertWhatsapp) replyHumanAlert(Number(target.dataset.alertWhatsapp));
     if (target.dataset.resolveAlert) resolveHumanAlert(Number(target.dataset.resolveAlert));
     if (target.dataset.lgpdWhatsapp) replyPrivacyRequest(target.dataset.lgpdWhatsapp);
@@ -895,6 +895,7 @@ async function handleSupabaseEmailAuth(email, password) {
     }
     state.session = { userId: localUser.id };
     save();
+    await syncProducts();
     setRoute("admin");
   } catch (error) {
     toast(authErrorMessage(error));
@@ -1009,6 +1010,7 @@ async function syncSupabaseSession() {
     }
     state.session = { userId: localUser.id };
     save();
+    await syncProducts();
 
     cleanAuthCallbackUrl();
 
@@ -1248,17 +1250,102 @@ function normalizeCustomerPhone(phone) {
   return clean;
 }
 
-function saveProduct(id) {
+async function saveProduct(id) {
   const item = state.products.find((productItem) => productItem.id === id);
   if (!item) return;
   const priceValue = document.querySelector(`[data-admin-price="${id}"]`)?.value;
-  item.price = priceValue === "" ? null : Number(priceValue);
-  item.stock = Number(document.querySelector(`[data-admin-stock="${id}"]`)?.value || 0);
-  item.image = document.querySelector(`[data-admin-image="${id}"]`)?.value || item.image;
-  item.active = document.querySelector(`[data-admin-active="${id}"]`)?.checked || false;
-  save();
-  toast("Produto atualizado.");
-  render();
+  const price = priceValue === "" ? null : Number(priceValue);
+  const stock = Math.max(0, Math.trunc(Number(document.querySelector(`[data-admin-stock="${id}"]`)?.value || 0)));
+  const image = document.querySelector(`[data-admin-image="${id}"]`)?.value || item.image;
+  const active = document.querySelector(`[data-admin-active="${id}"]`)?.checked || false;
+
+  if (price !== null && (!Number.isFinite(price) || price < 0)) {
+    toast("Informe um preco valido.");
+    return;
+  }
+
+  const updatedItem = { ...item, price, stock, image, active };
+
+  try {
+    const client = await loadSupabase();
+    const { data, error } = await client
+      .from("products")
+      .upsert(productPayload(updatedItem), { onConflict: "id" })
+      .select("id")
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) throw new Error("O banco nao confirmou a atualizacao do produto.");
+
+    Object.assign(item, updatedItem);
+    save();
+    toast("Produto e preco salvos para todos os clientes.");
+    render();
+  } catch (error) {
+    toast(`Nao foi possivel salvar o produto: ${error.message || "erro desconhecido"}`);
+  }
+}
+
+function productPayload(item) {
+  return {
+    id: item.id,
+    name: item.name,
+    category: item.category,
+    brand: item.brand || "Syntec",
+    description: item.description || "",
+    indication: item.indication || "",
+    presentation: item.presentation || "",
+    dose: item.dose || "",
+    price: item.price === "" || item.price === undefined ? null : item.price,
+    image_url: item.image || "",
+    active: item.active !== false,
+    stock: Math.max(0, Math.trunc(Number(item.stock) || 0)),
+    faq: Array.isArray(item.faq) ? item.faq : [],
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function productFromDatabase(row) {
+  const fallback = state.products.find((item) => item.id === row.id) || seedProducts.find((item) => item.id === row.id) || {};
+  return {
+    ...fallback,
+    id: row.id,
+    name: row.name || fallback.name || row.id,
+    category: row.category || fallback.category || "Outros",
+    brand: row.brand || fallback.brand || "Syntec",
+    description: row.description || fallback.description || "",
+    indication: row.indication || fallback.indication || "",
+    presentation: row.presentation || fallback.presentation || "",
+    dose: row.dose || fallback.dose || "",
+    price: row.price === null || row.price === undefined ? null : Number(row.price),
+    image: row.image_url || fallback.image || "",
+    active: row.active !== false,
+    stock: Math.max(0, Math.trunc(Number(row.stock) || 0)),
+    faq: Array.isArray(row.faq) && row.faq.length ? row.faq : fallback.faq || [],
+  };
+}
+
+async function syncProducts() {
+  if (!CONFIG.supabaseUrl || !CONFIG.supabaseAnonKey) return;
+  try {
+    const client = await loadSupabase();
+    const { data, error } = await client
+      .from("products")
+      .select("id,name,category,brand,description,indication,presentation,dose,price,image_url,active,stock,faq");
+    if (error) throw error;
+    if (!data?.length) return;
+
+    const databaseProducts = new Map(data.map((row) => [row.id, productFromDatabase(row)]));
+    state.products = state.products.map((item) => databaseProducts.get(item.id) || item);
+    for (const [id, item] of databaseProducts) {
+      if (!state.products.some((productItem) => productItem.id === id)) state.products.push(item);
+    }
+    save();
+    render();
+  } catch (error) {
+    if (currentUser()?.role === "admin") {
+      toast(`Nao foi possivel carregar os produtos do banco: ${error.message || "erro desconhecido"}`);
+    }
+  }
 }
 
 async function handleSettings(event) {
@@ -1541,6 +1628,7 @@ function boot() {
   }
   if (shouldSyncSupabaseSession()) syncSupabaseSession();
   syncSalesSettings();
+  syncProducts();
 }
 
 boot();

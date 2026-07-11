@@ -168,7 +168,7 @@ with check (id = auth.uid() or public.is_admin());
 
 create policy "products_select_public" on public.products
 for select to anon, authenticated
-using (active = true or public.is_admin());
+using (true);
 
 create policy "products_admin_all" on public.products
 for all to authenticated

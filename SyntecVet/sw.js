@@ -1,4 +1,4 @@
-const CACHE_NAME = "syntecvet-v18";
+const CACHE_NAME = "syntecvet-v19";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -6,6 +6,9 @@ const APP_SHELL = [
   "/app.js",
   "/config.js",
   "/manifest.webmanifest",
+  "/assets/brand/syntec-logo.png",
+  "/assets/catalog/catalog-hero-v2.webp",
+  "/assets/ui/product-stage-v1.webp",
   "/assets/products/anestt.jpg",
   "/assets/products/get-vacina-syntec.jpg",
 ];

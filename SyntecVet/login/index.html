@@ -4,32 +4,54 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#0057a8" />
-    <title>SyntecVet | Catalogo de Produtos</title>
+    <title>SyntecVet | Catálogo de Produtos</title>
     <meta
       name="description"
       content="Vitrine digital SyntecVet para pedidos, atendimento e painel do representante."
     />
-    <link rel="manifest" href="/manifest.webmanifest?v=18" />
-    <link rel="stylesheet" href="/styles.css?v=18" />
-    <script src="/config.js?v=18"></script>
-    <script defer src="/app.js?v=18"></script>
+    <link rel="manifest" href="/manifest.webmanifest?v=19" />
+    <link rel="stylesheet" href="/styles.css?v=19" />
+    <script src="/config.js?v=19"></script>
+    <script defer src="/app.js?v=19"></script>
   </head>
   <body>
-    <header class="topbar">
-      <a class="brand" href="#catalogo" aria-label="SyntecVet">
-        <span class="brand-mark">S</span>
-        <span>Syntec<span>Vet</span></span>
-      </a>
-      <nav class="nav-actions" aria-label="Navegacao principal">
-        <button class="icon-button" id="navCatalog" type="button" title="Catalogo" aria-label="Catalogo">
+    <header class="site-header">
+      <div class="header-main">
+        <a class="brand" href="#catalogo" aria-label="Syntec Saúde Animal">
+          <img src="/assets/brand/syntec-logo.png" alt="Syntec Saúde Animal" />
+        </a>
+
+        <label class="header-search" for="headerSearch">
+          <input id="headerSearch" type="search" placeholder="Pesquise um produto, espécie ou categoria" autocomplete="off" />
+          <span data-icon="search" aria-hidden="true"></span>
+        </label>
+
+        <button class="help-button" id="headerHelp" type="button">
+          <span>Precisa de ajuda?</span>
+          <strong>Fale conosco</strong>
+        </button>
+
+        <nav class="nav-actions" aria-label="Navegação principal">
+          <button class="cart-button" id="navCart" type="button" title="Carrinho" aria-label="Carrinho">
+            <span data-icon="cart"></span>
+            <strong id="cartBadge" class="badge" hidden>0</strong>
+          </button>
+          <button class="pill-button" id="navProfile" type="button" hidden>Admin</button>
+        </nav>
+      </div>
+
+      <nav class="category-menu" aria-label="Categorias do catálogo">
+        <button class="menu-trigger" id="navCatalog" type="button">
           <span data-icon="grid"></span>
+          Catálogo
         </button>
-        <button class="icon-button" id="navCart" type="button" title="Carrinho" aria-label="Carrinho">
-          <span data-icon="cart"></span>
-          <strong id="cartBadge" class="badge" hidden>0</strong>
-        </button>
-        <button class="pill-button" id="navProfile" type="button" hidden>Admin</button>
+        <button type="button" data-header-category="Anestésicos">Anestésicos</button>
+        <button type="button" data-header-category="Anti-inflamatórios">Anti-inflamatórios</button>
+        <button type="button" data-header-category="Antibióticos">Antibióticos</button>
+        <button type="button" data-header-category="Biológicos">Biológicos</button>
+        <button type="button" data-header-category="Todos">Todos os produtos</button>
       </nav>
+      <div class="header-accent" aria-hidden="true"></div>
     </header>
 
     <main id="app" class="app-shell" tabindex="-1"></main>
@@ -37,20 +59,20 @@
     <footer class="site-footer">
       <p>
         &copy; 2026 <strong>SyntecVet</strong>. Desenvolvido por <strong>Catarina Magalh&atilde;es</strong>
-        <span aria-hidden="true">&bull;</span> Vers&atilde;o 18
+        <span aria-hidden="true">&bull;</span> Vers&atilde;o 19
         <span aria-hidden="true">&bull;</span> Todos os direitos reservados.
       </p>
     </footer>
 
     <section class="chat-shell" id="chatShell" aria-label="Assistente virtual">
-      <button class="chat-fab" id="chatToggle" type="button" aria-label="Abrir assistente">
-        <span data-icon="message"></span>
+      <button class="chat-fab" id="chatToggle" type="button" aria-label="Abrir atendimento pelo WhatsApp">
+        <span data-icon="whatsapp"></span>
       </button>
       <div class="chat-panel" id="chatPanel" hidden>
         <div class="chat-head">
           <div>
-            <strong>Assistente SyntecVet</strong>
-            <span>Online</span>
+            <strong>Atendimento SyntecVet</strong>
+            <span>Assistente virtual</span>
           </div>
           <button class="icon-button ghost" id="chatClose" type="button" aria-label="Fechar chat">
             <span data-icon="close"></span>

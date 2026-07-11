@@ -16,7 +16,7 @@ Confira `config.js`:
 
 ```js
 window.SYNTECVET_CONFIG = {
-  salesRepWhatsapp: "5571999216734",
+  salesRepWhatsapp: "",
   supabaseUrl: "https://nhbftmmobtfdajpbxldo.supabase.co",
   supabaseAnonKey: "COLE_AQUI_A_CHAVE_PUBLICA_ANON_OU_PUBLISHABLE",
 };

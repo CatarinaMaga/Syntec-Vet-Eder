@@ -90,13 +90,13 @@ create table if not exists public.chat_messages (
 create table if not exists public.sales_settings (
   id boolean primary key default true check (id = true),
   representative_name text not null default 'Representante SyntecVet',
-  whatsapp_number text not null default '5571999216734',
+  whatsapp_number text not null default '',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 insert into public.sales_settings (id, representative_name, whatsapp_number)
-values (true, 'Representante SyntecVet', '5571999216734')
+values (true, 'Representante SyntecVet', '')
 on conflict (id) do nothing;
 
 create or replace function public.set_updated_at()

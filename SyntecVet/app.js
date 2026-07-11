@@ -14,6 +14,7 @@ const STORE = {
 
 const PRIVACY_VERSION = "2026-07-09";
 const PUBLIC_APP_URL = "https://syntec-vet-eder-x47q.vercel.app";
+const LEGACY_SALES_WHATSAPP = "5571999216734";
 const PHASE_ONE_MODE = true;
 const ROUTES = ["login", "catalogo", "carrinho", "perfil", "admin", "privacidade"];
 
@@ -117,7 +118,7 @@ function seed() {
         role: "admin",
         fullName: "Representante SyntecVet",
         email: "representante@syntecvet.local",
-        phone: CONFIG.salesRepWhatsapp || "5571999216734",
+        phone: "",
         password: "admin123",
         createdAt: new Date().toISOString(),
       },
@@ -135,7 +136,7 @@ function seed() {
   if (!localStorage.getItem(STORE.settings)) {
     write(STORE.settings, {
       representativeName: "Representante SyntecVet",
-      whatsapp: CONFIG.salesRepWhatsapp || "5571999216734",
+      whatsapp: "",
     });
   }
   state.products = read(STORE.products, seedProducts);
@@ -144,6 +145,7 @@ function seed() {
   state.cart = read(STORE.cart, {});
   state.orders = read(STORE.orders, []);
   state.settings = read(STORE.settings, {});
+  state.settings.whatsapp = normalizeSalesWhatsapp(state.settings.whatsapp || CONFIG.salesRepWhatsapp || "");
   state.chat = read(STORE.chat, []);
 }
 
@@ -567,7 +569,7 @@ function renderAdmin() {
       <form id="settingsForm" class="panel form-stack">
         <h2>Representante</h2>
         ${inputField("settingsName", "Nome", state.settings.representativeName || "")}
-        ${inputField("settingsWhatsapp", "WhatsApp", state.settings.whatsapp || "", "tel", "5571999216734", "Use codigo do pais + DDD + numero. Ex: 5571999216734.")}
+        ${inputField("settingsWhatsapp", "WhatsApp", normalizeSalesWhatsapp(state.settings.whatsapp), "tel", "5571999999999", "Use codigo do pais + DDD + numero. Ex: 5571999999999.")}
         <button class="primary-button" type="submit">Salvar WhatsApp</button>
       </form>
     </section>
@@ -1139,6 +1141,11 @@ async function handleCheckout(event) {
   const items = cartItems();
   if (!items.length) return;
 
+  if (!isValidSalesWhatsapp(normalizeSalesWhatsapp(state.settings.whatsapp || CONFIG.salesRepWhatsapp))) {
+    toast("O WhatsApp do representante ainda nao foi configurado.");
+    return;
+  }
+
   const customerName = value("checkoutName");
   const customerPhone = value("checkoutPhone").replace(/\D/g, "");
   const address = {
@@ -1200,7 +1207,7 @@ function whatsappUrl(order) {
     "",
     `Total: ${money(order.total)}`,
   ];
-  const phone = String(state.settings.whatsapp || CONFIG.salesRepWhatsapp || "").replace(/\D/g, "");
+  const phone = normalizeSalesWhatsapp(state.settings.whatsapp || CONFIG.salesRepWhatsapp);
   return `https://wa.me/${phone}?text=${encodeURIComponent(lines.join("\n"))}`;
 }
 
@@ -1254,13 +1261,75 @@ function saveProduct(id) {
   render();
 }
 
-function handleSettings(event) {
+async function handleSettings(event) {
   event.preventDefault();
-  state.settings.representativeName = value("settingsName");
-  state.settings.whatsapp = value("settingsWhatsapp").replace(/\D/g, "");
-  save();
-  toast("Configuracao salva.");
-  render();
+  const representativeName = value("settingsName");
+  const whatsapp = normalizeSalesWhatsapp(value("settingsWhatsapp"));
+
+  if (!representativeName) {
+    toast("Informe o nome do representante.");
+    return;
+  }
+  if (!isValidSalesWhatsapp(whatsapp)) {
+    toast("Informe o WhatsApp com codigo do pais, DDD e numero. Ex: 5571999999999.");
+    return;
+  }
+
+  try {
+    const client = await loadSupabase();
+    const { data, error } = await client
+      .from("sales_settings")
+      .update({
+        representative_name: representativeName,
+        whatsapp_number: whatsapp,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", true)
+      .select("id")
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) throw new Error("Registro de configuracao comercial nao encontrado.");
+
+    state.settings.representativeName = representativeName;
+    state.settings.whatsapp = whatsapp;
+    save();
+    toast("Dados do representante salvos para todos os clientes.");
+    render();
+  } catch (error) {
+    toast(`Nao foi possivel salvar os dados do representante: ${error.message || "erro desconhecido"}`);
+  }
+}
+
+function normalizeSalesWhatsapp(phone) {
+  const clean = String(phone || "").replace(/\D/g, "");
+  return clean === LEGACY_SALES_WHATSAPP ? "" : clean;
+}
+
+function isValidSalesWhatsapp(phone) {
+  return /^55\d{10,11}$/.test(String(phone || ""));
+}
+
+async function syncSalesSettings() {
+  if (!CONFIG.supabaseUrl || !CONFIG.supabaseAnonKey) return;
+  try {
+    const client = await loadSupabase();
+    const { data, error } = await client
+      .from("sales_settings")
+      .select("representative_name,whatsapp_number")
+      .eq("id", true)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return;
+
+    state.settings.representativeName = data.representative_name || "Representante SyntecVet";
+    state.settings.whatsapp = normalizeSalesWhatsapp(data.whatsapp_number);
+    save();
+    render();
+  } catch (error) {
+    if (currentUser()?.role === "admin") {
+      toast(`Nao foi possivel carregar os dados do representante: ${error.message || "erro desconhecido"}`);
+    }
+  }
 }
 
 function exportMyData() {
@@ -1322,7 +1391,7 @@ function clearLocalData() {
 }
 
 function representativeWhatsappUrl(message) {
-  const phone = String(state.settings.whatsapp || CONFIG.salesRepWhatsapp || "").replace(/\D/g, "");
+  const phone = normalizeSalesWhatsapp(state.settings.whatsapp || CONFIG.salesRepWhatsapp);
   return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 }
 
@@ -1471,6 +1540,7 @@ function boot() {
     navigator.serviceWorker.register("/sw.js").catch(() => {});
   }
   if (shouldSyncSupabaseSession()) syncSupabaseSession();
+  syncSalesSettings();
 }
 
 boot();

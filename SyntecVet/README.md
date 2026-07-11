@@ -52,7 +52,7 @@ Edite `config.js`:
 
 ```js
 window.SYNTECVET_CONFIG = {
-  salesRepWhatsapp: "5571999216734",
+  salesRepWhatsapp: "",
   supabaseUrl: "https://SEU_PROJECT_REF.supabase.co",
   supabaseAnonKey: "SUA_CHAVE_PUBLICA_ANON",
 };

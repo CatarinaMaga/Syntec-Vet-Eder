@@ -255,6 +255,14 @@ function render() {
   adminNav.hidden = user?.role !== "admin";
   adminNav.textContent = "Administrador";
   if (headerSearch && headerSearch.value !== state.query) headerSearch.value = state.query;
+  const categoryLabel = state.category === "Todos" ? "Todos os produtos" : state.category;
+  const categoryCurrent = document.querySelector("#categoryCurrent");
+  if (categoryCurrent) categoryCurrent.textContent = categoryLabel;
+  document.querySelectorAll("[data-header-category]").forEach((button) => {
+    const isActive = button.dataset.headerCategory === state.category;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
 
   const app = document.querySelector("#app");
   if (state.route === "login") app.innerHTML = renderLogin();
@@ -278,19 +286,6 @@ function renderCatalog() {
       <img src="/assets/catalog/catalog-hero-v2.webp" alt="Cavalo e bovino representando a linha de grandes animais" />
       <div class="hero-copy">
         <h1>Catálogo digital</h1>
-      </div>
-    </section>
-
-    <section class="toolbar">
-      <div class="segmented" role="tablist">
-        ${categories()
-          .map(
-            (category) => `
-              <button class="${category === state.category ? "is-active" : ""}" type="button" data-category="${category}">
-                ${category}
-              </button>`,
-          )
-          .join("")}
       </div>
     </section>
 
@@ -791,16 +786,25 @@ function escapeHtml(value) {
 
 function bindEvents() {
   document.addEventListener("click", async (event) => {
+    if (!event.target.closest("#categoryMenuToggle, #categoryDropdown")) closeCategoryMenu();
     const target = event.target.closest("button, [data-category], [data-route], [data-detail], [data-close-detail]");
     if (!target) return;
 
-    if (target.id === "navCatalog") setRoute("catalogo");
+    if (target.id === "categoryMenuToggle") {
+      toggleCategoryMenu();
+      return;
+    }
+    if (target.id === "navCatalog") {
+      closeCategoryMenu();
+      setRoute("catalogo");
+    }
     if (target.id === "navCart") setRoute("carrinho");
     if (target.id === "navProfile") setRoute(currentUser()?.role === "admin" ? "admin" : "login");
     if (target.id === "headerHelp") openChat();
     if (target.dataset.route) setRoute(target.dataset.route);
     if (target.dataset.headerCategory) {
       state.category = target.dataset.headerCategory;
+      closeCategoryMenu();
       setRoute("catalogo");
     }
     if (target.dataset.category) {
@@ -855,6 +859,25 @@ function bindEvents() {
 
   document.querySelector("#chatToggle").addEventListener("click", openChat);
   document.querySelector("#chatClose").addEventListener("click", closeChat);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeCategoryMenu();
+  });
+}
+
+function toggleCategoryMenu() {
+  const dropdown = document.querySelector("#categoryDropdown");
+  const trigger = document.querySelector("#categoryMenuToggle");
+  const shouldOpen = dropdown.hidden;
+  dropdown.hidden = !shouldOpen;
+  trigger.setAttribute("aria-expanded", String(shouldOpen));
+}
+
+function closeCategoryMenu() {
+  const dropdown = document.querySelector("#categoryDropdown");
+  const trigger = document.querySelector("#categoryMenuToggle");
+  if (!dropdown || !trigger) return;
+  dropdown.hidden = true;
+  trigger.setAttribute("aria-expanded", "false");
 }
 
 function toggleAuthMode() {
@@ -1617,6 +1640,7 @@ function iconMarkup(name) {
     cart: `<svg viewBox="0 0 24 24"><path d="M6 6h15l-2 8H8L6 3H3v2h2l2 11h12v-2H9.6l-.3-2H19a1 1 0 0 0 1-.8l2-8A1 1 0 0 0 21 4H6z"/><circle cx="9" cy="20" r="2"/><circle cx="18" cy="20" r="2"/></svg>`,
     message: `<svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>`,
     whatsapp: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479s1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.262.489 1.693.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.981.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.002-5.45 4.437-9.884 9.892-9.884a9.82 9.82 0 0 1 7.021 2.91 9.81 9.81 0 0 1 2.9 7.023c-.003 5.45-4.437 9.884-9.889 9.884m8.413-18.297A11.82 11.82 0 0 0 12.056 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.9 11.9 0 0 0 5.692 1.448h.005c6.557 0 11.893-5.335 11.896-11.893a11.82 11.82 0 0 0-3.48-8.413Z"/></svg>`,
+    "chevron-down": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.7 8.6 5.3 5.3 5.3-5.3 1.4 1.4-6.7 6.7L5.3 10z"/></svg>`,
     close: `<svg viewBox="0 0 24 24"><path d="m6 7.4 1.4-1.4L12 10.6 16.6 6 18 7.4 13.4 12 18 16.6 16.6 18 12 13.4 7.4 18 6 16.6l4.6-4.6z"/></svg>`,
     send: `<svg viewBox="0 0 24 24"><path d="M3 20 21 12 3 4v6l10 2-10 2z"/></svg>`,
     search: `<svg viewBox="0 0 24 24"><path d="M10 4a6 6 0 1 0 3.7 10.7l4.8 4.8 1.4-1.4-4.8-4.8A6 6 0 0 0 10 4m0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8"/></svg>`,

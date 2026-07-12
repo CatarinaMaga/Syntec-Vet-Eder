@@ -9,10 +9,10 @@
       name="description"
       content="Vitrine digital SyntecVet para pedidos, atendimento e painel do representante."
     />
-    <link rel="manifest" href="/manifest.webmanifest?v=20" />
-    <link rel="stylesheet" href="/styles.css?v=20" />
-    <script src="/config.js?v=20"></script>
-    <script defer src="/app.js?v=20"></script>
+    <link rel="manifest" href="/manifest.webmanifest?v=21" />
+    <link rel="stylesheet" href="/styles.css?v=21" />
+    <script src="/config.js?v=21"></script>
+    <script defer src="/app.js?v=21"></script>
   </head>
   <body>
     <header class="site-header">
@@ -40,17 +40,36 @@
         </nav>
       </div>
 
-      <nav class="category-menu" aria-label="Categorias do catálogo">
-        <button class="menu-trigger" id="navCatalog" type="button">
+      <nav class="category-menu" aria-label="Menu do catálogo">
+        <button class="menu-trigger" id="categoryMenuToggle" type="button" aria-expanded="false" aria-controls="categoryDropdown">
           <span data-icon="grid"></span>
-          Catálogo
+          Categorias
+          <span class="chevron" data-icon="chevron-down"></span>
         </button>
-        <button type="button" data-header-category="Anestésicos">Anestésicos</button>
-        <button type="button" data-header-category="Anti-inflamatórios">Anti-inflamatórios</button>
-        <button type="button" data-header-category="Antibióticos">Antibióticos</button>
-        <button type="button" data-header-category="Biológicos">Biológicos</button>
-        <button type="button" data-header-category="Todos">Todos os produtos</button>
+        <button class="catalog-link" id="navCatalog" type="button">Catálogo digital</button>
+        <div class="category-current" aria-live="polite">
+          <span>Categoria selecionada</span>
+          <strong id="categoryCurrent">Todos os produtos</strong>
+        </div>
       </nav>
+      <div class="category-dropdown" id="categoryDropdown" hidden>
+        <div class="category-dropdown-inner" aria-label="Todos os tipos de produtos">
+          <button type="button" data-header-category="Todos">Todos os produtos</button>
+          <button type="button" data-header-category="Anestésicos">Anestésicos</button>
+          <button type="button" data-header-category="Anti-inflamatórios">Anti-inflamatórios</button>
+          <button type="button" data-header-category="Antibióticos">Antibióticos</button>
+          <button type="button" data-header-category="Antiparasitários">Antiparasitários</button>
+          <button type="button" data-header-category="Biológicos">Biológicos</button>
+          <button type="button" data-header-category="Broncodilatadores">Broncodilatadores</button>
+          <button type="button" data-header-category="Ectoparasiticidas">Ectoparasiticidas</button>
+          <button type="button" data-header-category="Endectocidas">Endectocidas</button>
+          <button type="button" data-header-category="Especialidades">Especialidades</button>
+          <button type="button" data-header-category="Higiene e Saúde">Higiene e Saúde</button>
+          <button type="button" data-header-category="Hormônios">Hormônios</button>
+          <button type="button" data-header-category="Suplementos">Suplementos</button>
+          <button type="button" data-header-category="Vitamínicos e Minerais">Vitamínicos e Minerais</button>
+        </div>
+      </div>
       <div class="header-accent" aria-hidden="true"></div>
     </header>
 
@@ -59,7 +78,7 @@
     <footer class="site-footer">
       <p>
         &copy; 2026 <strong>SyntecVet</strong>. Desenvolvido por <strong>Catarina Magalh&atilde;es</strong>
-        <span aria-hidden="true">&bull;</span> Vers&atilde;o 20
+        <span aria-hidden="true">&bull;</span> Vers&atilde;o 21
         <span aria-hidden="true">&bull;</span> Todos os direitos reservados.
       </p>
     </footer>

@@ -157,6 +157,20 @@ as $$
   );
 $$;
 
+drop policy if exists "profiles_select_own_or_admin" on public.profiles;
+drop policy if exists "profiles_update_own_or_admin" on public.profiles;
+drop policy if exists "products_select_public" on public.products;
+drop policy if exists "products_admin_all" on public.products;
+drop policy if exists "orders_select_own_or_admin" on public.orders;
+drop policy if exists "orders_insert_own" on public.orders;
+drop policy if exists "orders_admin_update" on public.orders;
+drop policy if exists "order_items_select_own_or_admin" on public.order_items;
+drop policy if exists "order_items_insert_authenticated" on public.order_items;
+drop policy if exists "chat_insert_authenticated" on public.chat_messages;
+drop policy if exists "chat_select_own_or_admin" on public.chat_messages;
+drop policy if exists "sales_settings_select_public" on public.sales_settings;
+drop policy if exists "sales_settings_admin_update" on public.sales_settings;
+
 create policy "profiles_select_own_or_admin" on public.profiles
 for select to authenticated
 using (id = auth.uid() or public.is_admin());
@@ -164,7 +178,7 @@ using (id = auth.uid() or public.is_admin());
 create policy "profiles_update_own_or_admin" on public.profiles
 for update to authenticated
 using (id = auth.uid() or public.is_admin())
-with check (id = auth.uid() or public.is_admin());
+with check (public.is_admin() or (id = auth.uid() and role = 'customer'));
 
 create policy "products_select_public" on public.products
 for select to anon, authenticated
@@ -181,7 +195,7 @@ using (user_id = auth.uid() or public.is_admin());
 
 create policy "orders_insert_own" on public.orders
 for insert to authenticated
-with check (user_id = auth.uid() or user_id is null);
+with check (user_id = auth.uid());
 
 create policy "orders_admin_update" on public.orders
 for update to authenticated
@@ -201,7 +215,14 @@ using (
 
 create policy "order_items_insert_authenticated" on public.order_items
 for insert to authenticated
-with check (true);
+with check (
+  public.is_admin()
+  or exists (
+    select 1 from public.orders o
+    where o.id = order_items.order_id
+      and o.user_id = auth.uid()
+  )
+);
 
 create policy "chat_insert_authenticated" on public.chat_messages
 for insert to authenticated

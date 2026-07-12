@@ -1,6 +1,7 @@
 const CONFIG = window.SYNTECVET_CONFIG || {};
 let supabaseClient = null;
 let supabaseLoadPromise = null;
+let serviceWorkerRefreshing = false;
 
 const STORE = {
   products: "syntecvet.products",
@@ -13,6 +14,7 @@ const STORE = {
 };
 
 const PRIVACY_VERSION = "2026-07-09";
+const APP_VERSION = "22";
 const PUBLIC_APP_URL = "https://syntec-vet-eder-x47q.vercel.app";
 const LEGACY_SALES_WHATSAPP = "5571999216734";
 const PHASE_ONE_MODE = true;
@@ -89,7 +91,7 @@ function product(id, name, category, indication, dose, presentation, page) {
     pageImage: `/assets/catalog/page-${String(page).padStart(2, "0")}.png`,
     description: `${name} integra a linha ${category.toLowerCase()} Syntec para grandes animais. Consulte sempre a bula e a orientação do médico-veterinário.`,
     faq: [
-      ["Para quais animais e indicado?", indication],
+      ["Para quais animais é indicado?", indication],
       ["Qual é a apresentação?", presentation],
       ["Qual a posologia resumida?", dose],
     ],
@@ -106,33 +108,17 @@ function read(key, fallback) {
 }
 
 function write(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function seed() {
   if (!localStorage.getItem(STORE.products)) write(STORE.products, seedProducts);
-  if (!localStorage.getItem(STORE.users)) {
-    write(STORE.users, [
-      {
-        id: "admin",
-        role: "admin",
-        fullName: "Representante SyntecVet",
-        email: "representante@syntecvet.local",
-        phone: "",
-        password: "admin123",
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: "cliente-demo",
-        role: "customer",
-        fullName: "Cliente SyntecVet",
-        email: "cliente@syntecvet.local",
-        phone: "71999990000",
-        password: "cliente123",
-        createdAt: new Date().toISOString(),
-      },
-    ]);
-  }
+  if (!localStorage.getItem(STORE.users)) write(STORE.users, []);
   if (!localStorage.getItem(STORE.settings)) {
     write(STORE.settings, {
       representativeName: "Representante SyntecVet",
@@ -140,8 +126,9 @@ function seed() {
     });
   }
   state.products = read(STORE.products, seedProducts).map(applyCatalogText);
-  state.users = read(STORE.users, []);
+  state.users = read(STORE.users, []).filter((user) => !["admin", "cliente-demo"].includes(user.id));
   state.session = read(STORE.session, null);
+  if (state.session && !state.users.some((user) => user.id === state.session.userId)) state.session = null;
   state.cart = read(STORE.cart, {});
   state.orders = read(STORE.orders, []);
   state.settings = read(STORE.settings, {});
@@ -198,22 +185,39 @@ function cartItems() {
   return Object.entries(state.cart)
     .map(([id, quantity]) => {
       const productItem = state.products.find((item) => item.id === id);
-      return productItem ? { ...productItem, quantity } : null;
+      return productItem?.active && quantity > 0 ? { ...productItem, quantity } : null;
     })
     .filter(Boolean);
 }
 
 function cartCount() {
-  return Object.values(state.cart).reduce((sum, quantity) => sum + quantity, 0);
+  return cartItems().reduce((sum, item) => sum + item.quantity, 0);
 }
 
 function cartTotal() {
   return cartItems().reduce((sum, item) => sum + (Number(item.price) || 0) * item.quantity, 0);
 }
 
+function cartOrderTotal() {
+  return cartItems().some((item) => item.price === null || item.price === undefined || item.price === "")
+    ? null
+    : cartTotal();
+}
+
+function normalizeText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9@%]+/g, " ")
+    .trim();
+}
+
 function setRoute(route) {
-  state.route = route;
-  location.hash = route;
+  const nextRoute = ROUTES.includes(route) ? route : "catalogo";
+  state.route = nextRoute;
+  location.hash = nextRoute;
+  state.selectedProduct = null;
   render();
 }
 
@@ -275,9 +279,10 @@ function render() {
 }
 
 function renderCatalog() {
+  const normalizedQuery = normalizeText(state.query);
   const visible = state.products.filter((item) => {
     const matchCategory = state.category === "Todos" || item.category === state.category;
-    const matchQuery = `${item.name} ${item.category} ${item.indication}`.toLowerCase().includes(state.query.toLowerCase());
+    const matchQuery = normalizeText(`${item.name} ${item.category} ${item.indication}`).includes(normalizedQuery);
     return item.active && matchCategory && matchQuery;
   });
 
@@ -290,7 +295,10 @@ function renderCatalog() {
     </section>
 
     <section class="catalog-grid">
-      ${visible.map(renderProductCard).join("")}
+      ${
+        visible.map(renderProductCard).join("") ||
+        `<div class="empty-state"><strong>Nenhum produto encontrado.</strong><span>Tente outro nome, espécie ou categoria.</span></div>`
+      }
     </section>
     ${state.selectedProduct ? renderProductDrawer(state.selectedProduct) : ""}
   `;
@@ -298,27 +306,32 @@ function renderCatalog() {
 
 function renderProductCard(item) {
   const quantity = state.cart[item.id] || 0;
+  const id = escapeHtml(item.id);
+  const name = escapeHtml(item.name);
+  const category = escapeHtml(item.category);
+  const indication = escapeHtml(item.indication);
+  const image = escapeHtml(safeImageUrl(item.image));
   return `
     <article class="product-card">
-      <button class="image-button" data-detail="${item.id}" type="button" aria-label="Ver ${item.name}">
-        <img src="${item.image}" alt="${item.name}" loading="lazy" />
+      <button class="image-button" data-detail="${id}" type="button" aria-label="Ver ${name}">
+        <img src="${image}" alt="${name}" loading="lazy" />
       </button>
       <div class="product-body">
         <div class="product-meta">
-          <span>${item.category}</span>
+          <span>${category}</span>
           <strong>${money(item.price)}</strong>
         </div>
-        <h2>${item.name}</h2>
-        <p>${item.indication}</p>
+        <h2>${name}</h2>
+        <p>${indication}</p>
         <div class="quantity-row">
-          <button class="icon-button soft" type="button" data-dec="${item.id}" aria-label="Diminuir ${item.name}">
+          <button class="icon-button soft" type="button" data-dec="${id}" aria-label="Diminuir ${name}">
             <span data-icon="minus"></span>
           </button>
           <output>${quantity}</output>
-          <button class="icon-button soft" type="button" data-inc="${item.id}" aria-label="Aumentar ${item.name}">
+          <button class="icon-button soft" type="button" data-inc="${id}" aria-label="Aumentar ${name}">
             <span data-icon="plus"></span>
           </button>
-          <button class="add-button" type="button" data-add="${item.id}">Adicionar</button>
+          <button class="add-button" type="button" data-add="${id}">Adicionar</button>
         </div>
       </div>
     </article>
@@ -328,26 +341,30 @@ function renderProductCard(item) {
 function renderProductDrawer(id) {
   const item = state.products.find((productItem) => productItem.id === id);
   if (!item) return "";
+  const safeId = escapeHtml(item.id);
+  const name = escapeHtml(item.name);
+  const category = escapeHtml(item.category);
+  const image = escapeHtml(safeImageUrl(item.image));
   return `
     <div class="modal-backdrop" data-close-detail></div>
     <aside class="drawer" aria-label="Detalhes do produto">
       <div class="drawer-head">
         <div>
-          <span>${item.category}</span>
-          <h2>${item.name}</h2>
+          <span>${category}</span>
+          <h2>${name}</h2>
         </div>
         <button class="icon-button ghost" type="button" data-close-detail aria-label="Fechar">
           <span data-icon="close"></span>
         </button>
       </div>
-      <img class="drawer-image" src="${item.image}" alt="${item.name}" />
+      <img class="drawer-image" src="${image}" alt="${name}" />
       <dl class="detail-list">
         <div><dt>Preço</dt><dd>${money(item.price)}</dd></div>
-        <div><dt>Indicação</dt><dd>${item.indication}</dd></div>
-        <div><dt>Posologia</dt><dd>${item.dose}</dd></div>
-        <div><dt>Apresentação</dt><dd>${item.presentation}</dd></div>
+        <div><dt>Indicação</dt><dd>${escapeHtml(item.indication)}</dd></div>
+        <div><dt>Posologia</dt><dd>${escapeHtml(item.dose)}</dd></div>
+        <div><dt>Apresentação</dt><dd>${escapeHtml(item.presentation)}</dd></div>
       </dl>
-      <button class="primary-button" type="button" data-add="${item.id}">Adicionar ao carrinho</button>
+      <button class="primary-button" type="button" data-add="${safeId}">Adicionar ao carrinho</button>
     </aside>
   `;
 }
@@ -441,7 +458,7 @@ function renderProfile() {
     <section class="page-band">
       <div>
         <span>Perfil</span>
-        <h1>${user.fullName}</h1>
+        <h1>${escapeHtml(user.fullName)}</h1>
       </div>
       ${user.role === "admin" ? `<button class="primary-button" type="button" data-route="admin">Painel admin</button>` : ""}
     </section>
@@ -487,10 +504,15 @@ function renderProfile() {
 }
 
 function inputField(id, label, value, type = "text", placeholder = "", help = "") {
+  const requiredIds = new Set(["checkoutName", "checkoutPhone", "checkoutZip", "checkoutStreet", "checkoutNumber"]);
+  const isZip = id.endsWith("Zip");
+  const inputMode = type === "tel" || isZip ? 'inputmode="numeric"' : "";
+  const maxLength = isZip ? 'maxlength="9"' : type === "tel" ? 'maxlength="15"' : "";
+  const required = requiredIds.has(id) ? "required" : "";
   return `
     <label class="field" for="${id}">
       <span>${label}</span>
-      <input id="${id}" type="${type}" value="${escapeHtml(value)}" placeholder="${placeholder}" ${type === "tel" ? 'inputmode="numeric"' : ""} />
+      <input id="${id}" type="${type}" value="${escapeHtml(value)}" placeholder="${placeholder}" ${inputMode} ${maxLength} ${required} />
       ${help ? `<small>${help}</small>` : ""}
     </label>
   `;
@@ -528,7 +550,7 @@ function renderCart() {
             <span>Estou ciente de que meus dados serão usados somente para montar este pedido e enviá-lo ao WhatsApp do representante.</span>
           </label>
           <button class="link-button compact-link" type="button" data-route="privacidade">Ver aviso de privacidade</button>
-          <div class="summary-row"><span>Total</span><strong>${money(cartTotal())}</strong></div>
+          <div class="summary-row"><span>Total</span><strong>${money(cartOrderTotal())}</strong></div>
           <button class="primary-button" type="submit" ${items.length ? "" : "disabled"}>Enviar pedido no WhatsApp</button>
         </form>
       </aside>
@@ -537,24 +559,27 @@ function renderCart() {
 }
 
 function renderCartItem(item) {
+  const id = escapeHtml(item.id);
+  const name = escapeHtml(item.name);
+  const category = escapeHtml(item.category);
+  const image = escapeHtml(safeImageUrl(item.image));
   return `
     <article class="cart-line">
-      <img src="${item.image}" alt="${item.name}" />
+      <img src="${image}" alt="${name}" />
       <div>
-        <h2>${item.name}</h2>
-        <p>${item.category} - ${money(item.price)}</p>
+        <h2>${name}</h2>
+        <p>${category} - ${money(item.price)}</p>
       </div>
       <div class="quantity-row tight">
-        <button class="icon-button soft" type="button" data-dec="${item.id}" aria-label="Diminuir"><span data-icon="minus"></span></button>
+        <button class="icon-button soft" type="button" data-dec="${id}" aria-label="Diminuir"><span data-icon="minus"></span></button>
         <output>${item.quantity}</output>
-        <button class="icon-button soft" type="button" data-inc="${item.id}" aria-label="Aumentar"><span data-icon="plus"></span></button>
+        <button class="icon-button soft" type="button" data-inc="${id}" aria-label="Aumentar"><span data-icon="plus"></span></button>
       </div>
     </article>
   `;
 }
 
 function renderAdmin() {
-  const alerts = humanAlerts();
   return `
     <section class="page-band">
       <div>
@@ -566,7 +591,7 @@ function renderAdmin() {
     <section class="admin-grid">
       ${metric("Produtos ativos", state.products.filter((item) => item.active).length)}
       ${metric("Categorias", categories().length - 1)}
-      ${metric("Alertas humanos", state.chat.filter((item) => item.needsHuman && !item.handled).length)}
+      ${metric("Atendimento", "WhatsApp")}
       ${metric("Modo", "Fase 1")}
     </section>
     <section class="admin-layout">
@@ -588,14 +613,6 @@ function renderAdmin() {
         ${state.products.map(renderAdminProduct).join("")}
       </div>
     </section>
-    <section class="admin-layout">
-      <div class="panel">
-        <h2>Mensagens para atendimento</h2>
-        <div class="table-list">
-          ${alerts.slice(-8).reverse().map(renderHumanAlert).join("") || `<p class="muted">Nenhum alerta humano.</p>`}
-        </div>
-      </div>
-    </section>
   `;
 }
 
@@ -603,24 +620,23 @@ function metric(label, value) {
   return `<article class="metric"><span>${label}</span><strong>${value}</strong></article>`;
 }
 
-function renderBar(name, value, max) {
-  const width = Math.max(6, Math.round((value / max) * 100));
-  return `<div class="bar-row"><span>${name}</span><strong>${value}</strong><i style="width:${width}%"></i></div>`;
-}
-
 function renderAdminProduct(item) {
+  const id = escapeHtml(item.id);
+  const name = escapeHtml(item.name);
+  const category = escapeHtml(item.category);
+  const image = escapeHtml(safeImageUrl(item.image));
   return `
     <article class="admin-product">
-      <img src="${item.image}" alt="${item.name}" />
+      <img src="${image}" alt="${name}" />
       <div>
-        <strong>${item.name}</strong>
-        <span>${item.category}</span>
+        <strong>${name}</strong>
+        <span>${category}</span>
       </div>
-      <label>Preço<input type="number" step="0.01" min="0" value="${item.price ?? ""}" data-admin-price="${item.id}" placeholder="0,00" /></label>
-      <label>Estoque<input type="number" step="1" min="0" value="${item.stock || 0}" data-admin-stock="${item.id}" /></label>
-      <label>Imagem URL<input type="url" value="${escapeHtml(item.image)}" data-admin-image="${item.id}" /></label>
-      <label class="switch"><input type="checkbox" ${item.active ? "checked" : ""} data-admin-active="${item.id}" /><span>Ativo</span></label>
-      <button class="secondary-button" type="button" data-save-product="${item.id}">Salvar</button>
+      <label>Preço<input type="number" step="0.01" min="0" value="${item.price ?? ""}" data-admin-price="${id}" placeholder="0,00" /></label>
+      <label>Estoque<input type="number" step="1" min="0" value="${item.stock || 0}" data-admin-stock="${id}" /></label>
+      <label>Imagem URL<input type="url" value="${escapeHtml(item.image)}" data-admin-image="${id}" /></label>
+      <label class="switch"><input type="checkbox" ${item.active ? "checked" : ""} data-admin-active="${id}" /><span>Ativo</span></label>
+      <button class="secondary-button" type="button" data-save-product="${id}">Salvar</button>
     </article>
   `;
 }
@@ -689,55 +705,41 @@ function formatPhone(phone) {
 }
 
 function renderOrderMini(order) {
+  const orderId = escapeHtml(String(order.id || "").slice(0, 8));
+  const itemSummary = order.items.map((item) => `${item.quantity}x ${item.name}`).join(", ");
   return `
     <article class="order-mini">
-      <strong>Pedido ${order.id.slice(0, 8)}</strong>
+      <strong>Pedido ${orderId}</strong>
       <span>${new Date(order.createdAt).toLocaleDateString("pt-BR")} - ${money(order.total)}</span>
-      <small>${order.items.map((item) => `${item.quantity}x ${item.name}`).join(", ")}</small>
+      <small>${escapeHtml(itemSummary)}</small>
     </article>
   `;
-}
-
-function productStats() {
-  const map = new Map();
-  state.orders.forEach((order) => {
-    order.items.forEach((item) => {
-      map.set(item.id, {
-        name: item.name,
-        quantity: (map.get(item.id)?.quantity || 0) + item.quantity,
-      });
-    });
-  });
-  return Array.from(map.values()).sort((a, b) => b.quantity - a.quantity);
-}
-
-function customerStats() {
-  return state.users
-    .filter((user) => user.role === "customer")
-    .map((user) => {
-      const orders = state.orders.filter((order) => order.userId === user.id);
-      return {
-        name: user.fullName || user.email,
-        orders: orders.length,
-        quantity: orders.reduce((sum, order) => sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0),
-      };
-    })
-    .sort((a, b) => b.orders - a.orders);
 }
 
 async function lookupCep(zip) {
   const clean = zip.replace(/\D/g, "");
   if (clean.length !== 8) throw new Error("Digite um CEP com 8 números.");
-  const response = await fetch(`https://viacep.com.br/ws/${clean}/json/`);
-  const data = await response.json();
-  if (!response.ok || data.erro) throw new Error("CEP não encontrado.");
-  return {
-    zipCode: clean,
-    street: data.logradouro || "",
-    neighborhood: data.bairro || "",
-    city: data.localidade || "",
-    state: data.uf || "",
-  };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const response = await fetch(`https://viacep.com.br/ws/${clean}/json/`, { signal: controller.signal });
+    if (!response.ok) throw new Error("CEP não encontrado.");
+    const data = await response.json();
+    if (data.erro) throw new Error("CEP não encontrado.");
+    return {
+      zipCode: clean,
+      street: data.logradouro || "",
+      neighborhood: data.bairro || "",
+      city: data.localidade || "",
+      state: data.uf || "",
+    };
+  } catch (error) {
+    if (error.name === "AbortError") throw new Error("A consulta do CEP demorou demais. Tente novamente.");
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function applyAddress(prefix, address) {
@@ -754,16 +756,26 @@ function setValue(id, value) {
 }
 
 function updateCart(id, nextQuantity) {
-  const quantity = Math.max(0, nextQuantity);
+  const productItem = state.products.find((item) => item.id === id && item.active);
+  if (!productItem) {
+    toast("Este produto não está disponível no momento.");
+    return false;
+  }
+  const requested = Number.isFinite(Number(nextQuantity)) ? Math.trunc(Number(nextQuantity)) : 0;
+  const quantity = productItem.stock > 0 ? Math.min(Math.max(0, requested), productItem.stock) : Math.max(0, requested);
+  if (productItem.stock > 0 && requested > productItem.stock) {
+    toast(`Quantidade limitada ao estoque informado: ${productItem.stock}.`);
+    return false;
+  }
   if (quantity === 0) delete state.cart[id];
   else state.cart[id] = quantity;
   save();
   render();
+  return true;
 }
 
 function addToCart(id) {
-  updateCart(id, (state.cart[id] || 0) + 1);
-  toast("Produto adicionado ao carrinho.");
+  if (updateCart(id, (state.cart[id] || 0) + 1)) toast("Produto adicionado ao carrinho.");
 }
 
 function toast(message) {
@@ -777,17 +789,35 @@ function toast(message) {
 }
 
 function escapeHtml(value) {
-  return String(value || "")
+  return String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 }
 
+function safeImageUrl(value, fallback = "/assets/icon-512.png") {
+  const imageUrl = String(value || "").trim();
+  if (!imageUrl) return fallback;
+
+  try {
+    const parsed = new URL(imageUrl, location.origin);
+    if (parsed.origin === location.origin || parsed.protocol === "https:") return imageUrl;
+  } catch {
+    return fallback;
+  }
+
+  return fallback;
+}
+
+function isValidImageUrl(value) {
+  return safeImageUrl(value, "") !== "";
+}
+
 function bindEvents() {
   document.addEventListener("click", async (event) => {
     if (!event.target.closest("#categoryMenuToggle, #categoryDropdown")) closeCategoryMenu();
-    const target = event.target.closest("button, [data-category], [data-route], [data-detail], [data-close-detail]");
+    const target = event.target.closest("button, [data-route], [data-detail], [data-close-detail]");
     if (!target) return;
 
     if (target.id === "categoryMenuToggle") {
@@ -806,10 +836,6 @@ function bindEvents() {
       state.category = target.dataset.headerCategory;
       closeCategoryMenu();
       setRoute("catalogo");
-    }
-    if (target.dataset.category) {
-      state.category = target.dataset.category;
-      render();
     }
     if (target.dataset.add) addToCart(target.dataset.add);
     if (target.dataset.inc) updateCart(target.dataset.inc, (state.cart[target.dataset.inc] || 0) + 1);
@@ -842,6 +868,15 @@ function bindEvents() {
       if (state.route !== "catalogo") setRoute("catalogo");
       else render();
     }
+
+    if (["profileZip", "checkoutZip"].includes(event.target.id)) {
+      const clean = event.target.value.replace(/\D/g, "");
+      const prefix = event.target.id === "profileZip" ? "profile" : "checkout";
+      if (clean.length === 8 && event.target.dataset.cepLookup !== clean) {
+        event.target.dataset.cepLookup = clean;
+        autoCep(clean, prefix);
+      }
+    }
   });
 
   document.addEventListener("submit", (event) => {
@@ -862,6 +897,16 @@ function bindEvents() {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closeCategoryMenu();
   });
+  window.addEventListener("hashchange", syncRouteFromLocation);
+}
+
+function syncRouteFromLocation() {
+  const nextRoute = initialRoute();
+  if (nextRoute === state.route) return;
+  state.route = nextRoute;
+  state.selectedProduct = null;
+  closeCategoryMenu();
+  render();
 }
 
 function toggleCategoryMenu() {
@@ -903,13 +948,7 @@ async function handleAuth(event) {
     await handleSupabaseEmailAuth(email, password);
     return;
   }
-
-  const user = state.users.find((item) => item.email === email && item.password === password);
-  if (!user) return toast("E-mail ou senha inválidos.");
-  if (user.role !== "admin") return toast("Acesso restrito ao representante.");
-  state.session = { userId: user.id };
-  save();
-  setRoute("admin");
+  toast("A autenticação administrativa está indisponível. Verifique a configuração do Supabase.");
 }
 
 async function handleSupabaseEmailAuth(email, password) {
@@ -959,19 +998,21 @@ function authErrorMessage(error) {
   return error?.message || "Não foi possível autenticar.";
 }
 
-function loginWithGoogle() {
+async function loginWithGoogle() {
   if (!CONFIG.supabaseUrl || !CONFIG.supabaseAnonKey) {
     toast("Configure Supabase em config.js para ativar Google.");
     return;
   }
-  loadSupabase()
-    .then((client) =>
-      client.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: `${window.location.origin}/login` },
-      }),
-    )
-    .catch(() => toast("Não foi possível iniciar o login com o Google."));
+  try {
+    const client = await loadSupabase();
+    const { error } = await client.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/login` },
+    });
+    if (error) throw error;
+  } catch (error) {
+    toast(authErrorMessage(error) || "Não foi possível iniciar o login com o Google.");
+  }
 }
 
 function loadSupabase() {
@@ -995,21 +1036,55 @@ function loadSupabase() {
 
     const existingScript = document.querySelector("script[data-supabase-client]");
     if (existingScript) {
-      existingScript.addEventListener("load", connect, { once: true });
-      existingScript.addEventListener(
-        "error",
-        () => reject(new Error("Não foi possível carregar a autenticação do Supabase. Verifique sua conexão.")),
-        { once: true },
-      );
-      return;
+      if (existingScript.dataset.loadState === "error") {
+        existingScript.remove();
+      } else if (existingScript.dataset.loadState === "loaded") {
+        connect();
+        return;
+      } else {
+        const timeout = setTimeout(
+          () => reject(new Error("A autenticação do Supabase demorou demais para carregar.")),
+          12000,
+        );
+        existingScript.addEventListener(
+          "load",
+          () => {
+            clearTimeout(timeout);
+            connect();
+          },
+          { once: true },
+        );
+        existingScript.addEventListener(
+          "error",
+          () => {
+            clearTimeout(timeout);
+            reject(new Error("Não foi possível carregar a autenticação do Supabase. Verifique sua conexão."));
+          },
+          { once: true },
+        );
+        return;
+      }
     }
 
     const script = document.createElement("script");
     script.dataset.supabaseClient = "true";
     script.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.2/dist/umd/supabase.min.js";
-    script.onload = connect;
-    script.onerror = () =>
+    const scriptTimeout = setTimeout(() => {
+      script.dataset.loadState = "error";
+      script.remove();
+      reject(new Error("A autenticação do Supabase demorou demais para carregar."));
+    }, 12000);
+    script.onload = () => {
+      clearTimeout(scriptTimeout);
+      script.dataset.loadState = "loaded";
+      connect();
+    };
+    script.onerror = () => {
+      clearTimeout(scriptTimeout);
+      script.dataset.loadState = "error";
+      script.remove();
       reject(new Error("Não foi possível carregar a autenticação do Supabase. Verifique sua conexão."));
+    };
     document.head.append(script);
   }).catch((error) => {
     supabaseLoadPromise = null;
@@ -1093,7 +1168,7 @@ function upsertSupabaseUser(authUser, profile) {
     privacyVersion: profile.privacy_version || authUser.user_metadata?.privacy_version || user.privacyVersion || "",
     dataDeletionRequestedAt: profile.data_deletion_requested_at || user.dataDeletionRequestedAt || "",
     dataDeletionHandledAt: profile.data_deletion_handled_at || user.dataDeletionHandledAt || "",
-    provider: "google",
+    provider: authUser.app_metadata?.provider || "email",
   });
 
   return user;
@@ -1103,7 +1178,7 @@ async function syncSupabaseProfile(user, extra = {}) {
   if (!CONFIG.supabaseUrl || !CONFIG.supabaseAnonKey || !user?.id || user.id === "admin" || user.id === "cliente-demo") return;
   try {
     const client = await loadSupabase();
-    await client
+    const { error } = await client
       .from("profiles")
       .update({
         full_name: user.fullName || "",
@@ -1123,6 +1198,7 @@ async function syncSupabaseProfile(user, extra = {}) {
         ...extra,
       })
       .eq("id", user.id);
+    if (error) throw error;
   } catch {
     // O perfil local continua disponivel mesmo se a sincronizacao remota falhar.
   }
@@ -1130,7 +1206,12 @@ async function syncSupabaseProfile(user, extra = {}) {
 
 async function logout() {
   if (CONFIG.supabaseUrl && CONFIG.supabaseAnonKey) {
-    loadSupabase().then((client) => client.auth.signOut()).catch(() => {});
+    try {
+      const client = await loadSupabase();
+      await client.auth.signOut();
+    } catch {
+      toast("A sessão local foi encerrada, mas o Supabase não respondeu.");
+    }
   }
   state.session = null;
   save();
@@ -1139,11 +1220,16 @@ async function logout() {
 
 async function autoCep(value, prefix) {
   if (!value.trim()) return;
+  const input = document.querySelector(`#${prefix}Zip`);
+  const clean = value.replace(/\D/g, "");
+  if (input?.dataset.cepResolved === clean) return;
   try {
     const address = await lookupCep(value);
     applyAddress(prefix, address);
+    if (input) input.dataset.cepResolved = clean;
     toast("Endereço preenchido pelo CEP.");
   } catch (error) {
+    if (input) delete input.dataset.cepLookup;
     toast(error.message || "Erro ao consultar CEP.");
   }
 }
@@ -1198,6 +1284,14 @@ async function handleCheckout(event) {
     toast("Preencha nome, WhatsApp, CEP, rua e número.");
     return;
   }
+  if (!isValidCustomerPhone(customerPhone)) {
+    toast("Informe um WhatsApp válido com DDD. Ex.: 71999998888.");
+    return;
+  }
+  if (!/^\d{8}$/.test(address.zipCode)) {
+    toast("Informe um CEP válido com 8 números.");
+    return;
+  }
   if (!document.querySelector("#checkoutPrivacy")?.checked) {
     toast("Confirme o aviso de privacidade para enviar o pedido.");
     return;
@@ -1220,14 +1314,14 @@ async function handleCheckout(event) {
     customerName,
     customerPhone,
     shippingAddress,
-    total: cartTotal(),
+    total: cartOrderTotal(),
     items: items.map((item) => ({ id: item.id, name: item.name, quantity: item.quantity, price: item.price })),
     status: "pending",
     createdAt: new Date().toISOString(),
   };
+  openExternalUrl(whatsappUrl(order));
   state.cart = {};
   save();
-  window.open(whatsappUrl(order), "_blank", "noopener,noreferrer");
   setRoute("catalogo");
   toast("Pedido enviado ao WhatsApp. Nenhum cadastro de cliente foi criado.");
 }
@@ -1264,7 +1358,7 @@ function replyHumanAlert(index) {
     "Vi sua solicitação de atendimento no catálogo digital e estou entrando em contato para ajudar.",
   ].join("\n");
 
-  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+  openExternalUrl(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`);
 }
 
 function resolveHumanAlert(index) {
@@ -1285,23 +1379,41 @@ function normalizeCustomerPhone(phone) {
   return clean;
 }
 
+function isValidCustomerPhone(phone) {
+  const clean = String(phone || "").replace(/\D/g, "");
+  return clean.startsWith("55") ? /^55\d{10,11}$/.test(clean) : /^\d{10,11}$/.test(clean);
+}
+
 async function saveProduct(id) {
+  if (currentUser()?.role !== "admin") {
+    toast("Sessão administrativa inválida. Entre novamente.");
+    return;
+  }
   const item = state.products.find((productItem) => productItem.id === id);
   if (!item) return;
   const priceValue = document.querySelector(`[data-admin-price="${id}"]`)?.value;
-  const price = priceValue === "" ? null : Number(priceValue);
+  const price = priceValue === "" ? null : Number(String(priceValue).replace(",", "."));
   const stock = Math.max(0, Math.trunc(Number(document.querySelector(`[data-admin-stock="${id}"]`)?.value || 0)));
-  const image = document.querySelector(`[data-admin-image="${id}"]`)?.value || item.image;
+  const image = document.querySelector(`[data-admin-image="${id}"]`)?.value.trim() || item.image;
   const active = document.querySelector(`[data-admin-active="${id}"]`)?.checked || false;
+  const saveButton = document.querySelector(`[data-save-product="${id}"]`);
 
   if (price !== null && (!Number.isFinite(price) || price < 0)) {
     toast("Informe um preço válido.");
+    return;
+  }
+  if (!isValidImageUrl(image)) {
+    toast("Informe uma URL de imagem HTTPS válida.");
     return;
   }
 
   const updatedItem = { ...item, price, stock, image, active };
 
   try {
+    if (saveButton) {
+      saveButton.disabled = true;
+      saveButton.textContent = "Salvando...";
+    }
     const client = await loadSupabase();
     const { data, error } = await client
       .from("products")
@@ -1317,6 +1429,11 @@ async function saveProduct(id) {
     render();
   } catch (error) {
     toast(`Não foi possível salvar o produto: ${error.message || "erro desconhecido"}`);
+  } finally {
+    if (saveButton?.isConnected) {
+      saveButton.disabled = false;
+      saveButton.textContent = "Salvar";
+    }
   }
 }
 
@@ -1375,6 +1492,10 @@ async function syncProducts() {
     for (const [id, item] of databaseProducts) {
       if (!state.products.some((productItem) => productItem.id === id)) state.products.push(item);
     }
+    Object.keys(state.cart).forEach((id) => {
+      const productItem = state.products.find((item) => item.id === id);
+      if (!productItem?.active) delete state.cart[id];
+    });
     save();
     render();
   } catch (error) {
@@ -1481,6 +1602,11 @@ function exportMyData() {
 async function requestDataDeletion() {
   const user = currentUser();
   if (!user) return;
+  const representativePhone = normalizeSalesWhatsapp(state.settings.whatsapp || CONFIG.salesRepWhatsapp);
+  if (!isValidSalesWhatsapp(representativePhone)) {
+    toast("O WhatsApp do representante ainda não foi configurado.");
+    return;
+  }
   user.dataDeletionRequestedAt = new Date().toISOString();
   user.dataDeletionHandledAt = "";
   await syncSupabaseProfile(user);
@@ -1493,16 +1619,24 @@ async function requestDataDeletion() {
     `WhatsApp: ${user.phone || "não informado"}`,
     "Solicito a verificação, a exclusão ou a revogação do consentimento dos meus dados pessoais no sistema SyntecVet.",
   ].join("\n");
-  window.open(representativeWhatsappUrl(message), "_blank", "noopener,noreferrer");
+  openExternalUrl(representativeWhatsappUrl(message));
   toast("Solicitação LGPD enviada ao representante.");
   render();
 }
 
-function clearLocalData() {
+async function clearLocalData() {
   const user = currentUser();
   if (!user) return;
   const confirmed = confirm("Limpar os dados deste dispositivo remove a sessão, o carrinho, o histórico e o cadastro locais. Os dados já enviados ao banco ou ao WhatsApp precisam ser tratados pelo representante.");
   if (!confirmed) return;
+  if (CONFIG.supabaseUrl && CONFIG.supabaseAnonKey) {
+    try {
+      const client = await loadSupabase();
+      await client.auth.signOut();
+    } catch {
+      // A limpeza local deve continuar mesmo se o serviço de autenticação estiver indisponível.
+    }
+  }
   state.orders = state.orders.filter((order) => order.userId !== user.id);
   state.chat = state.chat.filter((item) => item.customerId !== user.id && item.customerEmail !== user.email);
   state.users = state.users.filter((item) => item.id !== user.id);
@@ -1518,6 +1652,17 @@ function representativeWhatsappUrl(message) {
   return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 }
 
+function openExternalUrl(url) {
+  if (!url) return;
+  const link = document.createElement("a");
+  link.href = url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  document.body.append(link);
+  link.click();
+  link.remove();
+}
+
 function replyPrivacyRequest(userId) {
   const user = state.users.find((item) => item.id === userId);
   const phone = normalizeCustomerPhone(user?.phone || "");
@@ -1526,11 +1671,11 @@ function replyPrivacyRequest(userId) {
     return;
   }
   const message = [
-    `Ola, ${user.fullName || "tudo bem"}!`,
+    `Olá, ${user.fullName || "tudo bem"}!`,
     `Sou ${state.settings.representativeName || "o representante SyntecVet"}.`,
     "Recebi sua solicitação LGPD e vou tratar seu pedido de privacidade.",
   ].join("\n");
-  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+  openExternalUrl(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`);
 }
 
 async function resolvePrivacyRequest(userId) {
@@ -1545,11 +1690,15 @@ async function resolvePrivacyRequest(userId) {
 
 function openChat() {
   document.querySelector("#chatPanel").hidden = false;
+  document.querySelector("#chatToggle").setAttribute("aria-expanded", "true");
   renderChat();
+  document.querySelector("#chatInput")?.focus();
 }
 
 function closeChat() {
   document.querySelector("#chatPanel").hidden = true;
+  document.querySelector("#chatToggle").setAttribute("aria-expanded", "false");
+  document.querySelector("#chatToggle")?.focus();
 }
 
 function renderChat() {
@@ -1564,7 +1713,7 @@ function renderChat() {
         </div>`,
       )
       .join("") ||
-    `<div class="chat-bubble from-bot">Olá! Sou o assistente virtual SyntecVet e posso responder dúvidas sobre os produtos. Digite: Representante para ser encaminhado ao WhatsApp do Representante de Vendas.</div>`;
+    `<div class="chat-bubble from-bot">Olá! Sou o assistente virtual SyntecVet. Pergunte pelo nome do produto, preço, indicação, dose, apresentação ou disponibilidade. Digite: Representante para ser encaminhado ao WhatsApp do Representante de Vendas.</div>`;
   box.scrollTop = box.scrollHeight;
 }
 
@@ -1591,41 +1740,118 @@ function handleChat(event) {
     ...customerInfo,
     createdAt: new Date().toISOString(),
   });
+  state.chat = state.chat.slice(-50);
   save();
   renderChat();
   if (answer.needsHuman) {
-    const alertOrder = {
-      id: slugId(),
-      customerName: user?.fullName || "Cliente",
-      customerPhone: user?.phone || "",
-      shippingAddress: "Atendimento via chatbot",
-      total: 0,
-      items: [{ id: "chat", name: `Atendimento humano: ${message}`, quantity: 1, price: null }],
-      createdAt: new Date().toISOString(),
-    };
-    window.open(whatsappUrl(alertOrder), "_blank", "noopener,noreferrer");
+    const humanMessage = [
+      "ATENDIMENTO HUMANO - CATÁLOGO SYNTECVET",
+      `Cliente: ${customerInfo.customer}`,
+      customerInfo.customerPhone ? `Telefone informado: ${customerInfo.customerPhone}` : "",
+      `Mensagem: ${message}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+    openExternalUrl(representativeWhatsappUrl(humanMessage));
   }
 }
 
 function chatAnswer(message) {
-  const text = message.toLowerCase();
+  const text = normalizeText(message);
   if (/(humano|representante|atendente|vendedor|urgente|whatsapp)/.test(text)) {
+    const phone = normalizeSalesWhatsapp(state.settings.whatsapp || CONFIG.salesRepWhatsapp);
+    if (!isValidSalesWhatsapp(phone)) {
+      return {
+        needsHuman: false,
+        message: "O WhatsApp do representante ainda não está configurado. Tente novamente mais tarde.",
+      };
+    }
     return {
       needsHuman: true,
-      message: "Vou direcionar sua mensagem ao representante com alerta de atendimento humano.",
+      message: "Vou abrir o WhatsApp com sua solicitação para o representante de vendas.",
     };
   }
-  const item = state.products.find((productItem) => text.includes(productItem.name.toLowerCase().split(" ")[0]));
+
+  const item = findProductInMessage(text);
   if (item) {
-    if (/(preço|preco|valor|quanto)/.test(text)) return { message: `${item.name}: ${money(item.price)}. O representante pode confirmar as condições comerciais.`, needsHuman: false };
-    if (/(dose|posologia|aplicar|uso)/.test(text)) return { message: `${item.name} - posologia resumida: ${item.dose}`, needsHuman: false };
-    if (/(apresentação|apresentacao|frasco|embalagem)/.test(text)) return { message: `${item.name} - apresentação: ${item.presentation}`, needsHuman: false };
-    return { message: `${item.name}: ${item.description} Indicação: ${item.indication}.`, needsHuman: false };
+    if (/(preco|valor|quanto|custa)/.test(text)) {
+      return { message: `${item.name}: ${money(item.price)}. O representante confirma as condições comerciais.`, needsHuman: false };
+    }
+    if (/(estoque|disponivel|disponibilidade|tem para vender)/.test(text)) {
+      const availability = item.stock > 0 ? `${item.stock} unidade(s) informada(s) no estoque.` : "Disponibilidade sob consulta.";
+      return { message: `${item.name}: ${availability}`, needsHuman: false };
+    }
+    if (/(dose|posologia|aplicar|aplicacao|como usar|uso)/.test(text)) {
+      return {
+        message: `${item.name} - posologia resumida do catálogo: ${item.dose} Confirme sempre na bula e com o médico-veterinário.`,
+        needsHuman: false,
+      };
+    }
+    if (/(apresentacao|frasco|embalagem|tamanho)/.test(text)) {
+      return { message: `${item.name} - apresentação: ${item.presentation}`, needsHuman: false };
+    }
+    if (/(indicacao|indicado|serve|animais|especies)/.test(text)) {
+      return { message: `${item.name} - indicação do catálogo: ${item.indication}.`, needsHuman: false };
+    }
+    return {
+      message: `${item.name}: ${item.description} Indicação do catálogo: ${item.indication}.`,
+      needsHuman: false,
+    };
   }
+
+  const category = findCategoryInMessage(text);
+  if (category) {
+    const names = state.products
+      .filter((productItem) => productItem.active && productItem.category === category)
+      .map((productItem) => productItem.name)
+      .join(", ");
+    return { message: `${category}: ${names || "nenhum produto ativo no momento"}.`, needsHuman: false };
+  }
+
+  if (/(categorias|tipos|linhas de produtos)/.test(text)) {
+    return { message: `Categorias disponíveis: ${categories().slice(1).join(", ")}.`, needsHuman: false };
+  }
+
+  if (/(diagnostico|tratamento|recomenda|qual devo usar)/.test(text)) {
+    return {
+      message: "Não posso indicar tratamento ou fazer diagnóstico. Posso informar os dados do catálogo; para orientação clínica, consulte um médico-veterinário.",
+      needsHuman: false,
+    };
+  }
+
   return {
     needsHuman: false,
-    message: "Posso responder sobre produtos, indicação, posologia e apresentação, ou chamar o representante.",
+    message: "Informe o nome do produto ou uma categoria. Posso responder sobre preço, indicação, dose, apresentação e disponibilidade, ou chamar o representante.",
   };
+}
+
+function findProductInMessage(normalizedMessage) {
+  const ignoredTokens = new Set(["syntec", "injetavel"]);
+  let bestMatch = null;
+  let bestScore = 0;
+
+  for (const item of state.products.filter((productItem) => productItem.active)) {
+    const normalizedName = normalizeText(item.name);
+    const normalizedId = normalizeText(item.id.replaceAll("-", " "));
+    if (normalizedMessage.includes(normalizedName) || normalizedMessage.includes(normalizedId)) return item;
+
+    const tokens = normalizedName.split(" ").filter((token) => token.length > 2 && !ignoredTokens.has(token));
+    const score = tokens.filter((token) => normalizedMessage.includes(token)).length;
+    if (score > bestScore) {
+      bestMatch = item;
+      bestScore = score;
+    }
+  }
+
+  return bestScore > 0 ? bestMatch : null;
+}
+
+function findCategoryInMessage(normalizedMessage) {
+  return (
+    categories()
+      .slice(1)
+      .find((category) => normalizedMessage.includes(normalizeText(category))) || null
+  );
 }
 
 function mountIcons() {
@@ -1652,6 +1878,32 @@ function iconMarkup(name) {
   return icons[name] || "";
 }
 
+async function registerServiceWorker() {
+  if (!("serviceWorker" in navigator) || location.protocol === "file:") return;
+
+  const reloadKey = `syntecvet-sw-reloaded-${APP_VERSION}`;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (serviceWorkerRefreshing) return;
+    serviceWorkerRefreshing = true;
+    try {
+      if (sessionStorage.getItem(reloadKey)) return;
+      sessionStorage.setItem(reloadKey, "true");
+    } catch {
+      // A atualização ainda pode prosseguir quando o armazenamento de sessão estiver bloqueado.
+    }
+    location.reload();
+  });
+
+  try {
+    const registration = await navigator.serviceWorker.register(`/sw.js?v=${APP_VERSION}`, {
+      updateViaCache: "none",
+    });
+    await registration.update();
+  } catch {
+    // O catálogo continua funcional on-line mesmo se o modo offline não puder ser ativado.
+  }
+}
+
 function boot() {
   seed();
   state.route = initialRoute();
@@ -1661,9 +1913,7 @@ function boot() {
   bindEvents();
   render();
   renderChat();
-  if ("serviceWorker" in navigator && location.protocol !== "file:") {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
-  }
+  registerServiceWorker();
   if (shouldSyncSupabaseSession()) syncSupabaseSession();
   syncSalesSettings();
   syncProducts();

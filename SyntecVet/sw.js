@@ -1,11 +1,11 @@
-const CACHE_NAME = "syntecvet-v21";
+const CACHE_NAME = "syntecvet-v22";
+const OFFLINE_URL = "/index.html";
 const APP_SHELL = [
-  "/",
-  "/index.html",
-  "/styles.css",
-  "/app.js",
-  "/config.js",
-  "/manifest.webmanifest",
+  OFFLINE_URL,
+  "/styles.css?v=22",
+  "/app.js?v=22",
+  "/config.js?v=22",
+  "/manifest.webmanifest?v=22",
   "/assets/brand/syntec-logo.png",
   "/assets/catalog/catalog-hero-v2.webp",
   "/assets/ui/product-stage-v1.webp",
@@ -13,34 +13,72 @@ const APP_SHELL = [
   "/assets/products/get-vacina-syntec.jpg",
 ];
 
+const SAFE_REFRESH_PATHS = new Set(["/", "/catalogo", "/login"]);
+
+async function cacheResponse(request, response) {
+  if (!response?.ok) return response;
+  const cache = await caches.open(CACHE_NAME);
+  await cache.put(request, response.clone());
+  return response;
+}
+
+async function networkFirst(request, fallbackRequest = request) {
+  try {
+    const response = await fetch(request, { cache: "no-store" });
+    return cacheResponse(request, response);
+  } catch {
+    return (await caches.match(fallbackRequest)) || Response.error();
+  }
+}
+
+async function staleWhileRevalidate(request) {
+  const cached = await caches.match(request);
+  const network = fetch(request)
+    .then((response) => cacheResponse(request, response))
+    .catch(() => null);
+  return cached || (await network) || Response.error();
+}
+
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) =>
+      cache.addAll(APP_SHELL.map((url) => new Request(url, { cache: "reload" }))),
+    ),
+  );
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))),
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)));
+      await self.clients.claim();
+
+      const windows = await self.clients.matchAll({ type: "window" });
+      await Promise.all(
+        windows.map((client) => {
+          const url = new URL(client.url);
+          return SAFE_REFRESH_PATHS.has(url.pathname) ? client.navigate(client.url) : Promise.resolve();
+        }),
+      );
+    })(),
   );
-  self.clients.claim();
 });
 
 self.addEventListener("fetch", (event) => {
   const requestUrl = new URL(event.request.url);
   if (event.request.method !== "GET" || requestUrl.origin !== self.location.origin) return;
 
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-          return response;
-        })
-        .catch(() => (event.request.mode === "navigate" ? caches.match("/index.html") : Response.error()));
-    }),
-  );
+  if (event.request.mode === "navigate") {
+    event.respondWith(networkFirst(event.request, OFFLINE_URL));
+    return;
+  }
+
+  if (["script", "style", "manifest"].includes(event.request.destination) || requestUrl.pathname === "/config.js") {
+    event.respondWith(networkFirst(event.request));
+    return;
+  }
+
+  event.respondWith(staleWhileRevalidate(event.request));
 });

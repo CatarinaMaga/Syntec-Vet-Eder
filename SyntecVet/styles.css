@@ -468,6 +468,24 @@ img {
   margin-top: 24px;
 }
 
+.empty-state {
+  grid-column: 1 / -1;
+  min-height: 180px;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  background: #fff;
+  text-align: center;
+}
+
+.empty-state strong {
+  color: var(--ink);
+  font-size: 1.05rem;
+}
+
 .product-card,
 .panel,
 .metric,
@@ -1318,7 +1336,7 @@ img {
   }
 
   .chat-panel {
-    width: min(380px, calc(100vw - 32px));
+    width: min(380px, calc(100vw - 48px));
   }
 
   .brand {

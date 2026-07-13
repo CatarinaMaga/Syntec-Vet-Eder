@@ -1,0 +1,37 @@
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://*.supabase.co https://viacep.com.br; img-src 'self' data: https:; style-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests
+
+/
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/login*
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/catalogo*
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/carrinho*
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/perfil*
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/admin*
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/privacidade*
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/config.js
+  Cache-Control: no-cache, no-store, must-revalidate

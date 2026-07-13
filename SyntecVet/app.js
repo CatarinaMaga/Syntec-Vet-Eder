@@ -14,7 +14,7 @@ const STORE = {
 };
 
 const PRIVACY_VERSION = "2026-07-09";
-const APP_VERSION = "22";
+const APP_VERSION = "23";
 const PUBLIC_APP_URL = "https://syntec-vet-eder-x47q.vercel.app";
 const LEGACY_SALES_WHATSAPP = "5571999216734";
 const PHASE_ONE_MODE = true;
@@ -65,6 +65,7 @@ const state = {
   users: [],
   session: null,
   cart: {},
+  selection: {},
   orders: [],
   settings: {},
   chat: [],
@@ -130,6 +131,7 @@ function seed() {
   state.session = read(STORE.session, null);
   if (state.session && !state.users.some((user) => user.id === state.session.userId)) state.session = null;
   state.cart = read(STORE.cart, {});
+  state.selection = { ...state.cart };
   state.orders = read(STORE.orders, []);
   state.settings = read(STORE.settings, {});
   state.settings.whatsapp = normalizeSalesWhatsapp(state.settings.whatsapp || CONFIG.salesRepWhatsapp || "");
@@ -251,6 +253,7 @@ function shouldSyncSupabaseSession() {
 }
 
 function render() {
+  syncCategoryMenu();
   document.querySelector("#cartBadge").hidden = cartCount() === 0;
   document.querySelector("#cartBadge").textContent = String(cartCount());
   const adminNav = document.querySelector("#navProfile");
@@ -276,6 +279,17 @@ function render() {
   if (state.route === "admin") app.innerHTML = currentUser()?.role === "admin" ? renderAdmin() : renderLogin();
   if (state.route === "privacidade") app.innerHTML = renderPrivacy();
   mountIcons();
+}
+
+function syncCategoryMenu() {
+  const menu = document.querySelector("#categoryDropdown .category-dropdown-inner");
+  if (!menu) return;
+  menu.innerHTML = categories()
+    .map((category) => {
+      const label = category === "Todos" ? "Todos os produtos" : category;
+      return `<button type="button" data-header-category="${escapeHtml(category)}">${escapeHtml(label)}</button>`;
+    })
+    .join("");
 }
 
 function renderCatalog() {
@@ -305,7 +319,7 @@ function renderCatalog() {
 }
 
 function renderProductCard(item) {
-  const quantity = state.cart[item.id] || 0;
+  const quantity = state.selection[item.id] || 0;
   const id = escapeHtml(item.id);
   const name = escapeHtml(item.name);
   const category = escapeHtml(item.category);
@@ -324,11 +338,11 @@ function renderProductCard(item) {
         <h2>${name}</h2>
         <p>${indication}</p>
         <div class="quantity-row">
-          <button class="icon-button soft" type="button" data-dec="${id}" aria-label="Diminuir ${name}">
+          <button class="icon-button soft" type="button" data-select-dec="${id}" aria-label="Diminuir ${name}">
             <span data-icon="minus"></span>
           </button>
           <output>${quantity}</output>
-          <button class="icon-button soft" type="button" data-inc="${id}" aria-label="Aumentar ${name}">
+          <button class="icon-button soft" type="button" data-select-inc="${id}" aria-label="Aumentar ${name}">
             <span data-icon="plus"></span>
           </button>
           <button class="add-button" type="button" data-add="${id}">Adicionar</button>
@@ -345,6 +359,7 @@ function renderProductDrawer(id) {
   const name = escapeHtml(item.name);
   const category = escapeHtml(item.category);
   const image = escapeHtml(safeImageUrl(item.image));
+  const quantity = state.selection[item.id] || 0;
   return `
     <div class="modal-backdrop" data-close-detail></div>
     <aside class="drawer" aria-label="Detalhes do produto">
@@ -364,6 +379,15 @@ function renderProductDrawer(id) {
         <div><dt>Posologia</dt><dd>${escapeHtml(item.dose)}</dd></div>
         <div><dt>Apresentação</dt><dd>${escapeHtml(item.presentation)}</dd></div>
       </dl>
+      <div class="quantity-row drawer-quantity">
+        <button class="icon-button soft" type="button" data-select-dec="${safeId}" aria-label="Diminuir ${name}">
+          <span data-icon="minus"></span>
+        </button>
+        <output>${quantity}</output>
+        <button class="icon-button soft" type="button" data-select-inc="${safeId}" aria-label="Aumentar ${name}">
+          <span data-icon="plus"></span>
+        </button>
+      </div>
       <button class="primary-button" type="button" data-add="${safeId}">Adicionar ao carrinho</button>
     </aside>
   `;
@@ -508,11 +532,12 @@ function inputField(id, label, value, type = "text", placeholder = "", help = ""
   const isZip = id.endsWith("Zip");
   const inputMode = type === "tel" || isZip ? 'inputmode="numeric"' : "";
   const maxLength = isZip ? 'maxlength="9"' : type === "tel" ? 'maxlength="15"' : "";
+  const numberRules = type === "number" ? `min="0" step="${id === "newProductStock" ? "1" : "0.01"}" inputmode="decimal"` : "";
   const required = requiredIds.has(id) ? "required" : "";
   return `
     <label class="field" for="${id}">
       <span>${label}</span>
-      <input id="${id}" type="${type}" value="${escapeHtml(value)}" placeholder="${placeholder}" ${inputMode} ${maxLength} ${required} />
+      <input id="${id}" type="${type}" value="${escapeHtml(value)}" placeholder="${placeholder}" ${inputMode} ${maxLength} ${numberRules} ${required} />
       ${help ? `<small>${help}</small>` : ""}
     </label>
   `;
@@ -605,6 +630,40 @@ function renderAdmin() {
         ${inputField("settingsName", "Nome", state.settings.representativeName || "")}
         ${inputField("settingsWhatsapp", "WhatsApp", normalizeSalesWhatsapp(state.settings.whatsapp), "tel", "5571999999999", "Use o código do país + DDD + número. Ex.: 5571999999999.")}
         <button class="primary-button" type="submit">Salvar WhatsApp</button>
+      </form>
+    </section>
+    <section class="panel admin-create-panel">
+      <div class="panel-heading">
+        <div>
+          <span class="eyebrow">Catálogo</span>
+          <h2>Cadastrar novo produto</h2>
+          <p class="muted">Preencha os dados abaixo. O produto será publicado no catálogo depois que o Supabase confirmar o cadastro.</p>
+        </div>
+      </div>
+      <form id="newProductForm" class="form-grid admin-create-form">
+        ${inputField("newProductName", "Nome do produto", "", "text", "Ex.: Novo produto Syntec")}
+        ${inputField("newProductCategory", "Categoria", "", "text", "Ex.: Antibióticos")}
+        ${inputField("newProductBrand", "Marca", "Syntec", "text", "Syntec")}
+        ${inputField("newProductPrice", "Preço", "", "number", "0,00", "Deixe em branco para exibir Sob consulta.")}
+        ${inputField("newProductStock", "Estoque", "0", "number", "0", "Use 0 quando não quiser limitar a quantidade.")}
+        ${inputField("newProductImage", "Imagem URL", "", "url", "https://...", "Use uma URL HTTPS pública da imagem do produto.")}
+        <label class="field full" for="newProductIndication">
+          <span>Indicação</span>
+          <textarea id="newProductIndication" rows="3" placeholder="Espécies e principais indicações" required></textarea>
+        </label>
+        <label class="field" for="newProductPresentation">
+          <span>Apresentação</span>
+          <textarea id="newProductPresentation" rows="3" placeholder="Ex.: Frasco de 50 mL"></textarea>
+        </label>
+        <label class="field" for="newProductDose">
+          <span>Posologia resumida</span>
+          <textarea id="newProductDose" rows="3" placeholder="Sempre conforme a bula e orientação veterinária"></textarea>
+        </label>
+        <label class="checkbox-field full">
+          <input id="newProductActive" type="checkbox" checked />
+          <span>Publicar o produto no catálogo imediatamente</span>
+        </label>
+        <button class="primary-button full" id="createProductButton" type="submit">Cadastrar produto</button>
       </form>
     </section>
     <section class="panel">
@@ -767,15 +826,41 @@ function updateCart(id, nextQuantity) {
     toast(`Quantidade limitada ao estoque informado: ${productItem.stock}.`);
     return false;
   }
-  if (quantity === 0) delete state.cart[id];
-  else state.cart[id] = quantity;
+  if (quantity === 0) {
+    delete state.cart[id];
+    delete state.selection[id];
+  } else {
+    state.cart[id] = quantity;
+    state.selection[id] = quantity;
+  }
   save();
   render();
   return true;
 }
 
 function addToCart(id) {
-  if (updateCart(id, (state.cart[id] || 0) + 1)) toast("Produto adicionado ao carrinho.");
+  const quantity = state.selection[id] || 0;
+  if (quantity < 1) {
+    toast("Escolha a quantidade usando os botões - e +.");
+    return;
+  }
+  if (updateCart(id, quantity)) toast(`${quantity} unidade(s) enviada(s) ao carrinho.`);
+}
+
+function updateSelection(id, nextQuantity) {
+  const productItem = state.products.find((item) => item.id === id && item.active);
+  if (!productItem) {
+    toast("Este produto não está disponível no momento.");
+    return;
+  }
+  const requested = Math.max(0, Math.trunc(Number(nextQuantity) || 0));
+  const quantity = productItem.stock > 0 ? Math.min(requested, productItem.stock) : requested;
+  if (productItem.stock > 0 && requested > productItem.stock) {
+    toast(`Quantidade limitada ao estoque informado: ${productItem.stock}.`);
+  }
+  if (quantity === 0) delete state.selection[id];
+  else state.selection[id] = quantity;
+  render();
 }
 
 function toast(message) {
@@ -838,6 +923,8 @@ function bindEvents() {
       setRoute("catalogo");
     }
     if (target.dataset.add) addToCart(target.dataset.add);
+    if (target.dataset.selectInc) updateSelection(target.dataset.selectInc, (state.selection[target.dataset.selectInc] || 0) + 1);
+    if (target.dataset.selectDec) updateSelection(target.dataset.selectDec, (state.selection[target.dataset.selectDec] || 0) - 1);
     if (target.dataset.inc) updateCart(target.dataset.inc, (state.cart[target.dataset.inc] || 0) + 1);
     if (target.dataset.dec) updateCart(target.dataset.dec, (state.cart[target.dataset.dec] || 0) - 1);
     if (target.dataset.detail) {
@@ -884,6 +971,7 @@ function bindEvents() {
     if (event.target.id === "profileForm") handleProfile(event);
     if (event.target.id === "checkoutForm") handleCheckout(event);
     if (event.target.id === "settingsForm") handleSettings(event);
+    if (event.target.id === "newProductForm") createProduct(event);
     if (event.target.id === "chatForm") handleChat(event);
   });
 
@@ -1435,6 +1523,98 @@ async function saveProduct(id) {
       saveButton.textContent = "Salvar";
     }
   }
+}
+
+async function createProduct(event) {
+  event.preventDefault();
+  if (currentUser()?.role !== "admin") {
+    toast("Sessão administrativa inválida. Entre novamente.");
+    return;
+  }
+
+  const name = value("newProductName");
+  const category = value("newProductCategory");
+  const brand = value("newProductBrand") || "Syntec";
+  const priceValue = value("newProductPrice");
+  const price = priceValue === "" ? null : Number(priceValue.replace(",", "."));
+  const stock = Math.max(0, Math.trunc(Number(value("newProductStock") || 0)));
+  const image = value("newProductImage");
+  const indication = value("newProductIndication");
+  const presentation = value("newProductPresentation");
+  const dose = value("newProductDose");
+  const active = document.querySelector("#newProductActive")?.checked !== false;
+  const createButton = document.querySelector("#createProductButton");
+
+  if (!name || !category || !indication) {
+    toast("Preencha nome, categoria e indicação do produto.");
+    return;
+  }
+  if (price !== null && (!Number.isFinite(price) || price < 0)) {
+    toast("Informe um preço válido ou deixe o campo em branco.");
+    return;
+  }
+  if (!isValidImageUrl(image)) {
+    toast("Informe uma URL HTTPS válida para a imagem do produto.");
+    return;
+  }
+
+  const newProduct = {
+    id: uniqueProductId(name),
+    name,
+    category,
+    brand,
+    description: `${name} integra a linha ${category.toLowerCase()} ${brand}. Consulte sempre a bula e a orientação do médico-veterinário.`,
+    indication,
+    presentation,
+    dose,
+    price,
+    stock,
+    image,
+    active,
+    faq: [
+      ["Para quais animais é indicado?", indication],
+      ["Qual é a apresentação?", presentation || "Consulte a embalagem e a bula do produto."],
+      ["Qual a posologia resumida?", dose || "Consulte a bula e o médico-veterinário."],
+    ],
+  };
+
+  try {
+    if (createButton) {
+      createButton.disabled = true;
+      createButton.textContent = "Cadastrando...";
+    }
+    const client = await loadSupabase();
+    const { data, error } = await client
+      .from("products")
+      .insert(productPayload(newProduct))
+      .select("id,name,category,brand,description,indication,presentation,dose,price,image_url,active,stock,faq")
+      .single();
+    if (error) throw error;
+    if (!data) throw new Error("O banco não confirmou o cadastro do produto.");
+
+    const savedProduct = productFromDatabase(data);
+    state.products.push(savedProduct);
+    state.products.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+    save();
+    toast("Novo produto cadastrado e publicado com sucesso.");
+    render();
+  } catch (error) {
+    const message = error?.code === "23505" ? "já existe um produto com esse identificador" : error.message || "erro desconhecido";
+    toast(`Não foi possível cadastrar o produto: ${message}.`);
+  } finally {
+    if (createButton?.isConnected) {
+      createButton.disabled = false;
+      createButton.textContent = "Cadastrar produto";
+    }
+  }
+}
+
+function uniqueProductId(name) {
+  const base = normalizeText(name).replace(/\s+/g, "-").replace(/^-|-$/g, "") || "produto";
+  if (!state.products.some((item) => item.id === base)) return base;
+  let suffix = 2;
+  while (state.products.some((item) => item.id === `${base}-${suffix}`)) suffix += 1;
+  return `${base}-${suffix}`;
 }
 
 function productPayload(item) {

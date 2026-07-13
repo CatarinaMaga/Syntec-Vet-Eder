@@ -580,6 +580,12 @@ img {
   font-weight: 800;
 }
 
+.drawer-quantity {
+  grid-template-columns: 38px 42px 38px;
+  justify-content: center;
+  margin: 4px 0 12px;
+}
+
 .icon-button {
   position: relative;
   width: 42px;
@@ -675,6 +681,8 @@ img {
 }
 
 .field input,
+.field textarea,
+.field select,
 .admin-product input,
 .chat-form input {
   width: 100%;
@@ -687,7 +695,16 @@ img {
   color: var(--ink);
 }
 
+.field textarea,
+.field select {
+  padding: 11px 12px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
 .field input:focus,
+.field textarea:focus,
+.field select:focus,
 .admin-product input:focus,
 .chat-form input:focus {
   border-color: var(--teal);
@@ -858,6 +875,27 @@ img {
 .product-admin-list {
   display: grid;
   gap: 10px;
+}
+
+.admin-create-panel,
+.admin-create-panel + .panel {
+  margin-top: 20px;
+}
+
+.panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.panel-heading h2 {
+  margin: 5px 0 6px;
+}
+
+.admin-create-form {
+  align-items: start;
 }
 
 .bar-row {

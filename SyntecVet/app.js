@@ -14,7 +14,7 @@ const STORE = {
 };
 
 const PRIVACY_VERSION = "2026-07-09";
-const APP_VERSION = "25";
+const APP_VERSION = "26";
 const PUBLIC_APP_URL = window.location.origin;
 const LEGACY_SALES_WHATSAPP = "5571999216734";
 const PHASE_ONE_MODE = true;
@@ -327,7 +327,7 @@ function renderProductCard(item) {
   const image = escapeHtml(safeImageUrl(item.image));
   return `
     <article class="product-card">
-      <button class="image-button" data-detail="${id}" type="button" aria-label="Ver ${name}">
+      <button class="image-button product-image-frame" data-detail="${id}" type="button" aria-label="Ver ${name}">
         <img src="${image}" alt="${name}" loading="lazy" />
       </button>
       <div class="product-body">

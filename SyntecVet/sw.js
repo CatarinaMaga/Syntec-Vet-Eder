@@ -1,11 +1,11 @@
-const CACHE_NAME = "syntecvet-v27";
+const CACHE_NAME = "syntecvet-v28";
 const OFFLINE_URL = "/index.html";
 const APP_SHELL = [
   OFFLINE_URL,
-  "/styles.css?v=27",
-  "/app.js?v=27",
-  "/config.js?v=27",
-  "/manifest.webmanifest?v=27",
+  "/styles.css?v=28",
+  "/app.js?v=28",
+  "/config.js?v=28",
+  "/manifest.webmanifest?v=28",
   "/assets/brand/syntec-logo.png",
   "/assets/catalog/catalog-hero-v2.webp",
   "/assets/ui/product-stage-v1.webp",

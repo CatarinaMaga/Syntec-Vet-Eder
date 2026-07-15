@@ -1,14 +1,15 @@
-const CACHE_NAME = "syntecvet-v24";
+const CACHE_NAME = "syntecvet-v25";
 const OFFLINE_URL = "/index.html";
 const APP_SHELL = [
   OFFLINE_URL,
-  "/styles.css?v=24",
-  "/app.js?v=24",
-  "/config.js?v=24",
-  "/manifest.webmanifest?v=24",
+  "/styles.css?v=25",
+  "/app.js?v=25",
+  "/config.js?v=25",
+  "/manifest.webmanifest?v=25",
   "/assets/brand/syntec-logo.png",
   "/assets/catalog/catalog-hero-v2.webp",
   "/assets/ui/product-stage-v1.webp",
+  "/assets/ui/assistant-avatar-v1.png",
   "/assets/products/anestt.jpg",
   "/assets/products/get-vacina-syntec.jpg",
 ];

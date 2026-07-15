@@ -14,7 +14,7 @@ const STORE = {
 };
 
 const PRIVACY_VERSION = "2026-07-09";
-const APP_VERSION = "24";
+const APP_VERSION = "25";
 const PUBLIC_APP_URL = window.location.origin;
 const LEGACY_SALES_WHATSAPP = "5571999216734";
 const PHASE_ONE_MODE = true;

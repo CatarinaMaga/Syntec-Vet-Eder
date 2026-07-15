@@ -501,11 +501,14 @@ img {
 }
 
 .image-button {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   width: 100%;
   aspect-ratio: 4 / 3;
   display: grid;
   place-items: center;
-  padding: 18px;
+  padding: 12px 14px 10px;
   border: 0;
   background-color: #f7fafc;
   background-image: url("/assets/ui/product-stage-v1.webp");
@@ -513,13 +516,33 @@ img {
   background-size: cover;
 }
 
+.image-button::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 10px;
+  border: 1px solid rgba(0, 83, 160, 0.15);
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.72);
+  pointer-events: none;
+}
+
 .image-button img {
-  width: 90%;
-  height: 88%;
+  position: relative;
+  z-index: 1;
+  width: 94%;
+  height: 94%;
   object-fit: contain;
-  border-radius: 4px;
-  background: #fff;
-  box-shadow: 0 12px 26px rgba(16, 32, 51, 0.16);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  mix-blend-mode: multiply;
+  filter: contrast(1.03) saturate(1.04);
+  transition: transform 160ms ease;
+}
+
+.image-button:hover img {
+  transform: scale(1.025);
 }
 
 .product-body {
@@ -1104,33 +1127,34 @@ img {
 
 .chat-fab {
   position: relative;
-  width: 64px;
-  height: 64px;
+  width: 72px;
+  height: 72px;
   display: inline-grid;
   place-items: center;
   padding: 0;
   border: 3px solid #fff;
   border-radius: 50%;
-  background: #25d366;
-  color: #fff;
-  box-shadow: 0 10px 28px rgba(18, 140, 126, 0.32), 0 2px 8px rgba(16, 32, 51, 0.18);
+  background: #eaf7fb;
+  color: var(--brand-blue);
+  box-shadow: 0 10px 28px rgba(0, 83, 160, 0.28), 0 2px 8px rgba(16, 32, 51, 0.18);
   cursor: pointer;
+  overflow: visible;
   transition: transform 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
 }
 
 .chat-fab::before {
   content: "";
   position: absolute;
-  inset: 5px;
-  border: 1px solid rgba(255, 255, 255, 0.38);
+  inset: -1px;
+  border: 2px solid rgba(0, 181, 173, 0.42);
   border-radius: inherit;
   pointer-events: none;
 }
 
 .chat-fab:hover {
   transform: translateY(-2px);
-  background: #1ebe5d;
-  box-shadow: 0 14px 32px rgba(18, 140, 126, 0.36), 0 3px 10px rgba(16, 32, 51, 0.2);
+  background: #f4fbfd;
+  box-shadow: 0 14px 32px rgba(0, 83, 160, 0.34), 0 3px 10px rgba(16, 32, 51, 0.2);
 }
 
 .chat-fab:active {
@@ -1142,21 +1166,28 @@ img {
   outline-offset: 3px;
 }
 
-.chat-fab > span {
+.assistant-avatar {
   position: relative;
   z-index: 1;
-  width: 33px;
-  height: 33px;
-  display: grid;
-  place-items: center;
+  width: 92%;
+  height: 92%;
+  display: block;
+  object-fit: contain;
+  border-radius: 50%;
+  filter: drop-shadow(0 3px 5px rgba(16, 32, 51, 0.2));
 }
 
-.chat-fab svg {
-  width: 32px;
-  height: 32px;
-  display: block;
-  fill: currentColor;
-  stroke: none;
+.assistant-status {
+  position: absolute;
+  z-index: 2;
+  right: -1px;
+  bottom: 3px;
+  width: 17px;
+  height: 17px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: #17a673;
+  box-shadow: 0 2px 6px rgba(16, 32, 51, 0.2);
 }
 
 .chat-panel {
@@ -1363,14 +1394,8 @@ img {
   }
 
   .chat-fab {
-    width: 60px;
-    height: 60px;
-  }
-
-  .chat-fab > span,
-  .chat-fab svg {
-    width: 30px;
-    height: 30px;
+    width: 64px;
+    height: 64px;
   }
 
   .chat-panel {

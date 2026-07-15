@@ -14,11 +14,29 @@ const STORE = {
 };
 
 const PRIVACY_VERSION = "2026-07-09";
-const APP_VERSION = "26";
+const APP_VERSION = "27";
 const PUBLIC_APP_URL = window.location.origin;
 const LEGACY_SALES_WHATSAPP = "5571999216734";
 const PHASE_ONE_MODE = true;
 const ROUTES = ["login", "catalogo", "carrinho", "perfil", "admin", "privacidade"];
+
+// Recorta apenas textos e elementos externos herdados das páginas do PDF.
+const PRODUCT_IMAGE_CROPS = Object.freeze({
+  "anequim-plus": [175, 110, 430, 210],
+  cikadol: [45, 90, 385, 185],
+  detomidin: [260, 75, 340, 310],
+  dosefer: [330, 105, 290, 285],
+  duofor: [130, 70, 280, 270],
+  "farmadex-injetavel": [100, 85, 480, 290],
+  gentomicin: [310, 145, 290, 240],
+  limpex: [250, 70, 260, 300],
+  luxol: [275, 70, 335, 300],
+  "multisyn-180": [180, 65, 350, 315],
+  "ocitocina-syntec": [300, 75, 300, 300],
+  "oxitetraciclina-la-20": [300, 135, 300, 245],
+  sulfatrox: [285, 80, 310, 290],
+  "taurus-sr": [140, 90, 450, 290],
+});
 
 const seedProducts = [
   product("anestt", "Anestt", "Anestésicos", "Bovinos, equinos, suínos, ovinos, cães e gatos", "SC: grandes animais, de 5 a 10 mL. Pequenos animais, de 1 a 3 mL por sítio de aplicação.", "Frasco-ampola de 50 mL.", 4),
@@ -324,11 +342,10 @@ function renderProductCard(item) {
   const name = escapeHtml(item.name);
   const category = escapeHtml(item.category);
   const indication = escapeHtml(item.indication);
-  const image = escapeHtml(safeImageUrl(item.image));
   return `
     <article class="product-card">
       <button class="image-button product-image-frame" data-detail="${id}" type="button" aria-label="Ver ${name}">
-        <img src="${image}" alt="${name}" loading="lazy" />
+        ${renderProductMedia(item, "product-card-media", true)}
       </button>
       <div class="product-body">
         <div class="product-meta">
@@ -352,13 +369,32 @@ function renderProductCard(item) {
   `;
 }
 
+function renderProductMedia(item, className = "", lazy = false) {
+  const name = escapeHtml(item.name);
+  const image = escapeHtml(safeImageUrl(item.image));
+  const crop = PRODUCT_IMAGE_CROPS[item.id];
+  const classes = `product-media ${className}`.trim();
+
+  if (!crop) {
+    return `<span class="${classes}"><img src="${image}" alt="${name}"${lazy ? ' loading="lazy"' : ""} /></span>`;
+  }
+
+  const [x, y, width, height] = crop;
+  return `
+    <span class="${classes}" role="img" aria-label="${name}">
+      <svg viewBox="${x} ${y} ${width} ${height}" aria-hidden="true" focusable="false" preserveAspectRatio="xMidYMid meet">
+        <image href="${image}" x="0" y="0" width="640" height="430" preserveAspectRatio="none"></image>
+      </svg>
+    </span>
+  `;
+}
+
 function renderProductDrawer(id) {
   const item = state.products.find((productItem) => productItem.id === id);
   if (!item) return "";
   const safeId = escapeHtml(item.id);
   const name = escapeHtml(item.name);
   const category = escapeHtml(item.category);
-  const image = escapeHtml(safeImageUrl(item.image));
   const quantity = state.selection[item.id] || 0;
   return `
     <div class="modal-backdrop" data-close-detail></div>
@@ -372,7 +408,7 @@ function renderProductDrawer(id) {
           <span data-icon="close"></span>
         </button>
       </div>
-      <img class="drawer-image" src="${image}" alt="${name}" />
+      ${renderProductMedia(item, "drawer-image-frame")}
       <dl class="detail-list">
         <div><dt>Preço</dt><dd>${money(item.price)}</dd></div>
         <div><dt>Indicação</dt><dd>${escapeHtml(item.indication)}</dd></div>
@@ -587,10 +623,9 @@ function renderCartItem(item) {
   const id = escapeHtml(item.id);
   const name = escapeHtml(item.name);
   const category = escapeHtml(item.category);
-  const image = escapeHtml(safeImageUrl(item.image));
   return `
     <article class="cart-line">
-      <img src="${image}" alt="${name}" />
+      ${renderProductMedia(item, "cart-image-frame")}
       <div>
         <h2>${name}</h2>
         <p>${category} - ${money(item.price)}</p>
@@ -683,10 +718,9 @@ function renderAdminProduct(item) {
   const id = escapeHtml(item.id);
   const name = escapeHtml(item.name);
   const category = escapeHtml(item.category);
-  const image = escapeHtml(safeImageUrl(item.image));
   return `
     <article class="admin-product">
-      <img src="${image}" alt="${name}" />
+      ${renderProductMedia(item, "admin-product-media")}
       <div>
         <strong>${name}</strong>
         <span>${category}</span>

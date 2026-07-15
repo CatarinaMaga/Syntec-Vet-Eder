@@ -527,12 +527,25 @@ img {
   pointer-events: none;
 }
 
-.image-button img {
+.product-media {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.product-media > img,
+.product-media > svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+.image-button .product-media {
   position: relative;
   z-index: 1;
   width: 94%;
   height: 94%;
-  object-fit: contain;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
@@ -541,7 +554,7 @@ img {
   transition: transform 160ms ease;
 }
 
-.image-button:hover img {
+.image-button:hover .product-media {
   transform: scale(1.025);
 }
 
@@ -851,10 +864,9 @@ img {
   border-radius: 8px;
 }
 
-.cart-line img {
+.cart-image-frame {
   width: 92px;
   height: 70px;
-  object-fit: contain;
   border-radius: 8px;
   background: #fff;
 }
@@ -1025,10 +1037,9 @@ img {
   border-radius: 8px;
 }
 
-.admin-product img {
+.admin-product-media {
   width: 82px;
   height: 60px;
-  object-fit: contain;
   border-radius: 8px;
   background: #fff;
 }
@@ -1087,12 +1098,24 @@ img {
   font-size: 1.6rem;
 }
 
-.drawer-image {
+.drawer-image-frame {
   width: 100%;
-  max-height: 270px;
-  object-fit: contain;
+  height: min(270px, 34vh);
   border: 1px solid var(--line);
   border-radius: 8px;
+  background-color: #f7fafc;
+  background-image: url("/assets/ui/product-stage-v1.webp");
+  background-position: center;
+  background-size: cover;
+}
+
+.drawer-image-frame > img,
+.drawer-image-frame > svg,
+.cart-image-frame > img,
+.cart-image-frame > svg,
+.admin-product-media > img,
+.admin-product-media > svg {
+  mix-blend-mode: multiply;
 }
 
 .detail-list {
@@ -1462,8 +1485,8 @@ img {
     font-size: 1.75rem;
   }
 
-  .cart-line img,
-  .admin-product img {
+  .cart-image-frame,
+  .admin-product-media {
     width: 100%;
     height: 140px;
   }
